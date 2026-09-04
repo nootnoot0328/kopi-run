@@ -152,6 +152,38 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
   font-size:14px;font-weight:700;color:var(--amber-deep)}
 .bases.dim,.bases.dim .opt{opacity:.45}
 
+/* icons */
+.ico{flex-shrink:0;display:block}
+.drinkrow{display:flex;align-items:center;gap:6px;min-width:0}
+.drinkrow .drink{margin-top:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt.base{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 6px;
+  font-size:12px;line-height:1.15;text-align:center}
+.chip{display:inline-flex;align-items:center;gap:6px}
+.chip.name{border-color:var(--jade);color:var(--jade)}
+.chip.name.taken{background:var(--tile);border-color:var(--line);color:var(--mute)}
+.chip.oneoff{border-color:var(--mute);color:var(--mute)}
+.preview{display:flex;align-items:center;gap:12px}
+.preview>div{min-width:0}
+.qtyrow{display:flex;align-items:center;gap:14px}
+.qtyrow .qty{font-size:56px}
+
+.qrbox{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px;
+  margin-top:10px;text-align:center}
+.qr{display:block;margin:0 auto;max-width:100%;height:auto;border-radius:6px}
+.btnrow{display:flex;gap:8px}
+.btnrow .ghost{margin-top:10px}
+
+/* groups */
+.groupbar{margin:12px 0 4px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+.chip.grp{border-color:var(--line);color:var(--mute);white-space:nowrap}
+.chip.grp.on{background:var(--jade);border-color:var(--jade);color:#fff}
+.chip.grp.static{cursor:default;background:#fff;color:var(--ink);border-color:var(--jade)}
+.chip .x{background:none;border:none;color:var(--chilli);font-size:17px;font-weight:800;
+  padding:0 0 0 4px;line-height:1}
+.warnline{color:var(--amber-deep);background:#FFF4E0;border-radius:9px;padding:8px;margin-top:8px}
+.rowmain{flex:1;background:none;border:none;text-align:left;padding:0;min-width:0}
+.rowmain .tags{display:block;font-size:12px;color:var(--jade);margin-top:1px}
+
 </style>
 </head>
 <body>
@@ -167,7 +199,253 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 
 </script>
 <script>
-/* Ask for a persistent-storage exemption. Safari resets this per launch, so ask every time. */
+/* Minimal QR encoder — byte mode, error correction level M, versions 1-20.
+   Written out rather than pulled from a CDN so the app stays one offline file. */
+var QR = (function () {
+  /* GF(256), primitive polynomial 0x11d */
+  var EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (function () {
+    for (var i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; }
+    for (var j = 255; j < 512; j++) EXP[j] = EXP[j - 255];
+  })();
+  function mul(a, b) { return a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]]; }
+
+  function genPoly(n) {
+    var g = [1];
+    for (var i = 0; i < n; i++) {
+      var ng = new Array(g.length + 1).fill(0);
+      for (var j = 0; j < g.length; j++) {
+        ng[j] ^= g[j];
+        ng[j + 1] ^= mul(g[j], EXP[i]);
+      }
+      g = ng;
+    }
+    return g;
+  }
+
+  function ecc(data, n) {
+    var g = genPoly(n), res = new Array(n).fill(0);
+    for (var i = 0; i < data.length; i++) {
+      var f = data[i] ^ res[0];
+      res.shift(); res.push(0);
+      if (f !== 0) for (var j = 0; j < n; j++) res[j] ^= mul(g[j + 1], f);
+    }
+    return res;
+  }
+
+  /* [ecPerBlock, blocks1, data1, blocks2, data2] for level M, versions 1-20 */
+  var M = [
+    null,
+    [10, 1, 16, 0, 0], [16, 1, 28, 0, 0], [26, 1, 44, 0, 0], [18, 2, 32, 0, 0],
+    [24, 2, 43, 0, 0], [16, 4, 27, 0, 0], [18, 4, 31, 0, 0], [22, 2, 38, 2, 39],
+    [22, 3, 36, 2, 37], [26, 4, 43, 1, 44], [30, 1, 50, 4, 51], [22, 6, 36, 2, 37],
+    [22, 8, 37, 1, 38], [24, 4, 40, 5, 41], [24, 5, 41, 5, 42], [28, 7, 45, 3, 46],
+    [28, 10, 46, 1, 47], [26, 9, 43, 4, 44], [26, 3, 44, 11, 45], [26, 3, 41, 13, 42]
+  ];
+
+  var ALIGN = [
+    [], [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42],
+    [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66],
+    [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86],
+    [6, 34, 62, 90]
+  ];
+
+  function capacity(v) { var t = M[v]; return t[1] * t[2] + t[3] * t[4]; }
+
+  function pickVersion(len) {
+    for (var v = 1; v <= 20; v++) {
+      var head = 4 + (v < 10 ? 8 : 16);
+      if (capacity(v) * 8 >= head + len * 8) return v;
+    }
+    return null;
+  }
+
+  function bitsToCodewords(bits, total) {
+    while (bits.length % 8 !== 0) bits.push(0);
+    var cw = [];
+    for (var i = 0; i < bits.length; i += 8) {
+      var b = 0;
+      for (var j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
+      cw.push(b);
+    }
+    var pad = [0xEC, 0x11], k = 0;
+    while (cw.length < total) cw.push(pad[k++ % 2]);
+    return cw;
+  }
+
+  function encode(bytes, v) {
+    var t = M[v], total = capacity(v), bits = [];
+    function push(val, n) { for (var i = n - 1; i >= 0; i--) bits.push((val >> i) & 1); }
+    push(4, 4);
+    push(bytes.length, v < 10 ? 8 : 16);
+    for (var i = 0; i < bytes.length; i++) push(bytes[i], 8);
+    var room = total * 8 - bits.length;
+    push(0, Math.min(4, room));
+    var cw = bitsToCodewords(bits, total);
+
+    /* split into blocks, compute ECC, interleave */
+    var blocks = [], eccs = [], p = 0, i2;
+    for (i2 = 0; i2 < t[1]; i2++) { blocks.push(cw.slice(p, p + t[2])); p += t[2]; }
+    for (i2 = 0; i2 < t[3]; i2++) { blocks.push(cw.slice(p, p + t[4])); p += t[4]; }
+    for (i2 = 0; i2 < blocks.length; i2++) eccs.push(ecc(blocks[i2], t[0]));
+
+    var out = [], maxD = Math.max(t[2], t[4] || 0), c;
+    for (c = 0; c < maxD; c++) for (i2 = 0; i2 < blocks.length; i2++) if (c < blocks[i2].length) out.push(blocks[i2][c]);
+    for (c = 0; c < t[0]; c++) for (i2 = 0; i2 < eccs.length; i2++) out.push(eccs[i2][c]);
+    return out;
+  }
+
+  function build(v) {
+    var n = v * 4 + 17;
+    var m = [], res = [], i, j;
+    for (i = 0; i < n; i++) { m.push(new Array(n).fill(0)); res.push(new Array(n).fill(0)); }
+    function set(r, c, val) { m[r][c] = val; res[r][c] = 1; }
+
+    /* finders + separators */
+    [[0, 0], [0, n - 7], [n - 7, 0]].forEach(function (o) {
+      for (i = -1; i <= 7; i++) for (j = -1; j <= 7; j++) {
+        var r = o[0] + i, c = o[1] + j;
+        if (r < 0 || c < 0 || r >= n || c >= n) continue;
+        var on = (i >= 0 && i <= 6 && (j === 0 || j === 6)) ||
+                 (j >= 0 && j <= 6 && (i === 0 || i === 6)) ||
+                 (i >= 2 && i <= 4 && j >= 2 && j <= 4);
+        set(r, c, on ? 1 : 0);
+      }
+    });
+
+    /* timing */
+    for (i = 8; i < n - 8; i++) { set(6, i, i % 2 === 0 ? 1 : 0); set(i, 6, i % 2 === 0 ? 1 : 0); }
+
+    /* alignment */
+    var a = ALIGN[v];
+    for (i = 0; i < a.length; i++) for (j = 0; j < a.length; j++) {
+      var ar = a[i], ac = a[j];
+      if ((ar <= 7 && ac <= 7) || (ar <= 7 && ac >= n - 8) || (ar >= n - 8 && ac <= 7)) continue;
+      for (var dr = -2; dr <= 2; dr++) for (var dc = -2; dc <= 2; dc++) {
+        var on2 = Math.max(Math.abs(dr), Math.abs(dc)) !== 1;
+        set(ar + dr, ac + dc, on2 ? 1 : 0);
+      }
+    }
+
+    set(n - 8, 8, 1);                                   /* dark module */
+    for (i = 0; i < 9; i++) { if (!res[8][i]) set(8, i, 0); if (!res[i][8]) set(i, 8, 0); }
+    for (i = 0; i < 8; i++) { set(8, n - 1 - i, 0); set(n - 1 - i, 8, 0); }
+
+    if (v >= 7) {
+      var rem = v << 12;
+      for (i = 17; i >= 12; i--) if ((rem >> i) & 1) rem ^= 0x1F25 << (i - 12);
+      var bitsV = (v << 12) | (rem & 0xFFF);
+      for (i = 0; i < 18; i++) {
+        var b = (bitsV >> i) & 1;
+        set(Math.floor(i / 3), n - 11 + (i % 3), b);
+        set(n - 11 + (i % 3), Math.floor(i / 3), b);
+      }
+    }
+    return { m: m, res: res, n: n };
+  }
+
+  function place(g, data) {
+    var n = g.n, m = g.m, res = g.res, idx = 0, bit = 0, up = true;
+    for (var col = n - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      for (var k = 0; k < n; k++) {
+        var row = up ? n - 1 - k : k;
+        for (var c = 0; c < 2; c++) {
+          var cc = col - c;
+          if (res[row][cc]) continue;
+          var v = 0;
+          if (idx < data.length * 8) v = (data[idx >> 3] >> (7 - (idx & 7))) & 1;
+          m[row][cc] = v; idx++;
+        }
+      }
+      up = !up;
+    }
+    return g;
+  }
+
+  function maskFn(k, r, c) {
+    switch (k) {
+      case 0: return (r + c) % 2 === 0;
+      case 1: return r % 2 === 0;
+      case 2: return c % 3 === 0;
+      case 3: return (r + c) % 3 === 0;
+      case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+      case 5: return (r * c) % 2 + (r * c) % 3 === 0;
+      case 6: return ((r * c) % 2 + (r * c) % 3) % 2 === 0;
+      default: return ((r + c) % 2 + (r * c) % 3) % 2 === 0;
+    }
+  }
+
+  function formatBits(mask) {
+    var d = (0x00 << 3) | mask;           /* level M = 00 */
+    var rem = d << 10, gen = 0x537;
+    for (var i = 14; i >= 10; i--) if ((rem >> i) & 1) rem ^= gen << (i - 10);
+    return ((d << 10) | rem) ^ 0x5412;
+  }
+
+  function applyFormat(g, mask) {
+    var n = g.n, bits = formatBits(mask), i;
+    for (i = 0; i < 15; i++) {
+      var b = (bits >> (14 - i)) & 1;   /* bit 14 first */
+      if (i < 6) g.m[8][i] = b;
+      else if (i < 8) g.m[8][i + 1] = b;
+      else if (i === 8) g.m[7][8] = b;
+      else g.m[14 - i][8] = b;
+      if (i < 8) g.m[n - 1 - i][8] = b;
+      else g.m[8][n - 15 + i] = b;
+    }
+    g.m[n - 8][8] = 1;
+  }
+
+  function penalty(m, n) {
+    var p = 0, r, c, i, run, dark = 0;
+    for (r = 0; r < n; r++) { run = 1; for (c = 1; c < n; c++) { if (m[r][c] === m[r][c - 1]) { run++; } else { if (run >= 5) p += 3 + run - 5; run = 1; } } if (run >= 5) p += 3 + run - 5; }
+    for (c = 0; c < n; c++) { run = 1; for (r = 1; r < n; r++) { if (m[r][c] === m[r - 1][c]) { run++; } else { if (run >= 5) p += 3 + run - 5; run = 1; } } if (run >= 5) p += 3 + run - 5; }
+    for (r = 0; r < n - 1; r++) for (c = 0; c < n - 1; c++) {
+      var v = m[r][c];
+      if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) p += 3;
+    }
+    var pat = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+    for (r = 0; r < n; r++) for (c = 0; c <= n - 11; c++) {
+      var okH = true, okV = true;
+      for (i = 0; i < 11; i++) { if (m[r][c + i] !== pat[i]) okH = false; if (m[c + i][r] !== pat[i]) okV = false; }
+      if (okH) p += 40; if (okV) p += 40;
+    }
+    for (r = 0; r < n; r++) for (c = 0; c < n; c++) if (m[r][c]) dark++;
+    p += Math.floor(Math.abs(dark * 100 / (n * n) - 50) / 5) * 10;
+    return p;
+  }
+
+  /* returns a 2D array of 0/1, or null if the payload is too big */
+  function matrix(text) {
+    var bytes = [];
+    for (var i = 0; i < text.length; i++) {
+      var cp = text.charCodeAt(i);
+      if (cp < 0x80) bytes.push(cp);
+      else if (cp < 0x800) { bytes.push(0xC0 | cp >> 6, 0x80 | cp & 63); }
+      else { bytes.push(0xE0 | cp >> 12, 0x80 | (cp >> 6) & 63, 0x80 | cp & 63); }
+    }
+    var v = pickVersion(bytes.length);
+    if (!v) return null;
+    var data = encode(bytes, v);
+
+    var best = null, bestScore = Infinity;
+    for (var k = 0; k < 8; k++) {
+      var g = place(build(v), data), r, c;
+      for (r = 0; r < g.n; r++) for (c = 0; c < g.n; c++)
+        if (!g.res[r][c] && maskFn(k, r, c)) g.m[r][c] ^= 1;
+      applyFormat(g, k);
+      var s = penalty(g.m, g.n);
+      if (s < bestScore) { bestScore = s; best = g.m; }
+    }
+    return best;
+  }
+
+  return { matrix: matrix };
+})();
+
+</script>
+<script>
 if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
 </script>
 <script>
@@ -193,7 +471,10 @@ const store = {
     catch (e) { persisted = false; }
   },
 };
-const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1", custom: "kr.custom.v1" };
+const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1",
+            custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1" };
+
+const inGroup = (p, g) => !g || (p.groups || []).indexOf(g) > -1;
 
 /* Anything the kopi/teh grammar can't express — canned drinks, calamansi ice
    lemon tea, whatever the stall happens to sell. Typed once, then reusable,
@@ -227,6 +508,143 @@ const GROUPS = [
   { key: "strength", gate: "strength", cards: [["Gau", "strong"], ["Po", "light"], ["Di Lo", "extra thick"]] },
 ];
 const baseOf = (id) => BASES.find((b) => b.id === id);
+
+/* ---------- sharing ----------
+   Deliberately NOT the run history. History exists only to compute usuals —
+   it's 60 runs of raw log, far past what a QR holds. The roster IS the
+   compressed history, so we ship the derivative and it fits in one code. */
+const clean = (x) => String(x).replace(/[|~#@>]/g, " ").replace(/\s+/g, " ").trim();
+
+function encodeShare(roster, customs, depth, groups) {
+  const parts = roster.filter((p) => p.usuals && p.usuals.length)
+    .map((p) => [clean(p.name)].concat(p.usuals.slice(0, depth || 3).map(clean)).join("~"));
+  (groups || []).forEach((g) => {
+    const members = roster.filter((p) => inGroup(p, g)).map((p) => clean(p.name));
+    if (members.length) parts.push("@" + clean(g) + ">" + members.join(">"));
+  });
+  (customs || []).forEach((c) => parts.push("#" + clean(c)));
+  return "KR1|" + parts.join("|");
+}
+
+/* A QR holds a few hundred bytes. Rather than fail on a big roster, shed the
+   least useful parts first: third usual, then second, then the off-menu list. */
+function bestShare(roster, customs) {
+  const tries = [
+    { d: 3, c: customs, note: "" },
+    { d: 2, c: customs, note: "Two usuals each — the roster was too big for three." },
+    { d: 1, c: customs, note: "Top usual each only — the roster was too big for more." },
+    { d: 1, c: [], note: "Top usual each, off-menu drinks left out. Use the text box to send everything." },
+  ];
+  /* Prefer a code that stays comfortable to scan off a phone screen (<= 81
+     modules) over one that carries every last usual. Fall back to any that fits. */
+  const made = [];
+  for (const t of tries) {
+    const text = encodeShare(roster, t.c, t.d, t.g);
+    const m = QR.matrix(text);
+    if (!m) continue;
+    if (m.length <= 81) return { text: text, note: t.note, fits: true };
+    made.push({ text: text, note: t.note, fits: true });
+  }
+  if (made.length) return made[made.length - 1];
+  return { text: encodeShare(roster, customs, 3, groups), note: "", fits: false };
+}
+
+function decodeShare(text) {
+  const t = String(text || "").trim();
+  if (t.indexOf("KR1|") !== 0) return null;
+  const people = [], cust = [], groups = [];
+  t.slice(4).split("|").filter(Boolean).forEach((chunk) => {
+    if (chunk.charAt(0) === "#") { cust.push(chunk.slice(1)); return; }
+    if (chunk.charAt(0) === "@") {
+      const f = chunk.slice(1).split(">").filter(Boolean);
+      if (f.length > 1) groups.push({ name: f[0], members: f.slice(1) });
+      return;
+    }
+    const f = chunk.split("~").filter(Boolean);
+    if (f.length > 1) people.push({ name: f[0], usuals: f.slice(1) });
+  });
+  return people.length || cust.length || groups.length
+    ? { people: people, cust: cust, groups: groups } : null;
+}
+
+function QRSvg({ text, size }) {
+  const m = QR.matrix(text);
+  if (!m) return html`<div class="warn">Too many people to fit in one QR code. Use the text box below instead.</div>`;
+  const n = m.length, q = 4, tot = n + q * 2;
+  let path = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r][c]) path += "M" + (c + q) + " " + (r + q) + "h1v1h-1z";
+  return html`<svg class="qr" viewBox=${"0 0 " + tot + " " + tot} width=${size} height=${size}
+    shape-rendering="crispEdges" role="img" aria-label="roster QR code">
+    <rect width=${tot} height=${tot} fill="#fff"/><path d=${path} fill="#241610"/></svg>`;
+}
+
+/* ---------- icons ----------
+   Only encode what a drink actually looks like: liquid colour, milk or no milk,
+   cup or glass. Sugar and strength get no glyph — an icon that pretends to show
+   "Gah Dai" is decoration wearing a badge. Those stay as text. */
+const LIQUID = {
+  "Kopi":      { "": "#7A4A2B", O: "#2E1B10", C: "#A0714A" },
+  "Teh":       { "": "#B07338", O: "#C68A34", C: "#C79A66" },
+  "Yuan Yang": { "": "#8E5730", O: "#4A2D19", C: "#A87A50" },
+  "Milo":      { "": "#5B3A21" },
+  "Teh Tarik": { "": "#C09263" },
+  "Teh Halia": { "": "#C0883C" },
+  "Horlicks":  { "": "#C4A47A" },
+  "Bandung":   { "": "#E07AA0" },
+  "Barley":    { "": "#DCCFA8" },
+  "Limau":     { "": "#C6C64A" },
+};
+/* which bases have milk in them by default, so the cream band means something */
+const CREAMY = { Kopi: 1, Teh: 1, "Yuan Yang": 1, Milo: 1, "Teh Tarik": 1, Horlicks: 1, Bandung: 1 };
+
+function parseDrink(line) {
+  if (!line) return null;
+  const names = BASES.map((b) => b.id).sort((a, b) => b.length - a.length);
+  const base = names.find((n) => line.toLowerCase().indexOf(n.toLowerCase()) === 0);
+  if (!base) return null;
+  const rest = line.slice(base.length);
+  return {
+    base,
+    milk: /\bO\b/.test(rest) ? "O" : /\bC\b/.test(rest) ? "C" : "",
+    peng: /\bPeng\b/i.test(rest),
+  };
+}
+
+function DrinkIcon({ line, size }) {
+  const S = size || 30;
+  const p = parseDrink(line);
+  const vb = "0 0 40 40";
+  if (!p) {
+    /* free text: a plain unlabelled cup, honestly says "we don't know" */
+    return html`<svg class="ico" width=${S} height=${S} viewBox=${vb} aria-hidden="true">
+      <path d="M11 15h18v13a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4z" fill="none" stroke="#B9BEB2" stroke-width="2"/>
+      <path d="M29 18h3a3 3 0 0 1 0 6h-3" fill="none" stroke="#B9BEB2" stroke-width="2"/>
+    </svg>`;
+  }
+  const col = (LIQUID[p.base] || {})[p.milk] || (LIQUID[p.base] || {})[""] || "#7A4A2B";
+  const cream = p.milk !== "O" && CREAMY[p.base];
+
+  if (p.peng) {
+    /* tall glass, straw, ice */
+    return html`<svg class="ico" width=${S} height=${S} viewBox=${vb} aria-hidden="true">
+      <path d="M24 4 18 16" stroke="#E09A2B" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M12 12h16l-2 24a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2z" fill=${col}/>
+      ${cream && html`<path d="M12 12h16l-.5 5h-15z" fill="#F2E4CE" opacity=".85"/>`}
+      <rect x="15" y="20" width="5" height="5" rx="1" fill="#fff" opacity=".55"/>
+      <rect x="21" y="27" width="4.5" height="4.5" rx="1" fill="#fff" opacity=".45"/>
+      <path d="M12 12h16l-2 24a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2z" fill="none" stroke="#241610" stroke-width="1.6" opacity=".35"/>
+    </svg>`;
+  }
+  /* ceramic cup, saucer, steam */
+  return html`<svg class="ico" width=${S} height=${S} viewBox=${vb} aria-hidden="true">
+    <path d="M15 3c-2 3 2 4 0 7M23 4c-2 3 2 4 0 7" fill="none" stroke="#E09A2B" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+    <path d="M9 14h20v12a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill=${col}/>
+    ${cream && html`<path d="M9 14h20v4H9z" fill="#F2E4CE" opacity=".85"/>`}
+    <path d="M9 14h20v12a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6z" fill="none" stroke="#241610" stroke-width="1.6" opacity=".35"/>
+    <path d="M29 17h3.5a3.5 3.5 0 0 1 0 7H29" fill="none" stroke="#241610" stroke-width="1.8" opacity=".35"/>
+    <path d="M6 35h28" stroke="#241610" stroke-width="2" opacity=".25" stroke-linecap="round"/>
+  </svg>`;
+}
 const recite = (d) => [d.base, d.milk, d.sugar, d.strength, d.peng && "Peng"].filter(Boolean).join(" ");
 
 /* ---------- usuals are learned from history, not curated by hand ---------- */
@@ -251,8 +669,14 @@ function App() {
   const [screen, setScreen] = useState("who");
   const [sheet, setSheet] = useState(null);
   const [customs, setCustoms] = useState(() => store.get(K.custom, []));
+  const [groups, setGroups] = useState(() => store.get(K.groups, []));
+  const [group, setGroup] = useState(() => store.get(K.active, ""));
 
   useEffect(() => store.set(K.custom, customs), [customs]);
+  useEffect(() => store.set(K.groups, groups), [groups]);
+  useEffect(() => store.set(K.active, group), [group]);
+  /* a deleted or renamed group must never leave the roster invisible */
+  useEffect(() => { if (group && groups.indexOf(group) === -1) setGroup(""); }, [groups, group]);
   useEffect(() => store.set(K.roster, roster), [roster]);
   useEffect(() => store.set(K.history, history), [history]);
   useEffect(() => store.set(K.draft, picked), [picked]);
@@ -283,6 +707,51 @@ function App() {
   }
   function addExtra(d) { setExtras((e) => [...e, d]); setSheet(null); }
 
+  /* Merge, never replace — a colleague importing your roster keeps their own. */
+  function setPersonGroups(name, gs) {
+    setRoster((r) => r.map((p) => (p.name === name ? { ...p, groups: gs } : p)));
+  }
+  function addGroup(name) {
+    const n = clean(name);
+    if (!n) return;
+    setGroups((g) => (g.some((x) => x.toLowerCase() === n.toLowerCase()) ? g : [...g, n]));
+  }
+  function removeGroup(name) {
+    setGroups((g) => g.filter((x) => x !== name));
+    setRoster((r) => r.map((p) => ({ ...p, groups: (p.groups || []).filter((x) => x !== name) })));
+  }
+
+  function mergeShare(inc) {
+    setRoster((r) => {
+      const out = r.map((x) => ({ ...x, usuals: x.usuals.slice() }));
+      inc.people.forEach((p) => {
+        const ex = out.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
+        if (!ex) out.push({ name: p.name, usuals: p.usuals.slice(0, 3) });
+        else p.usuals.forEach((u) => { if (ex.usuals.indexOf(u) === -1 && ex.usuals.length < 3) ex.usuals.push(u); });
+      });
+      return out;
+    });
+    setCustoms((c) => {
+      const out = c.slice();
+      inc.cust.forEach((x) => { if (!out.some((y) => y.toLowerCase() === x.toLowerCase())) out.push(x); });
+      return out.slice(0, 20);
+    });
+    if (inc.groups && inc.groups.length) {
+      setGroups((g) => {
+        const out = g.slice();
+        inc.groups.forEach((x) => { if (!out.some((y) => y.toLowerCase() === x.name.toLowerCase())) out.push(x.name); });
+        return out;
+      });
+      setRoster((r) => r.map((p) => {
+        const belongs = inc.groups.filter((x) => x.members.some((m) => m.toLowerCase() === p.name.toLowerCase()));
+        if (!belongs.length) return p;
+        const gs = (p.groups || []).slice();
+        belongs.forEach((x) => { if (gs.indexOf(x.name) === -1) gs.push(x.name); });
+        return { ...p, groups: gs };
+      }));
+    }
+  }
+
   /* Keep it, most recent first, matched case-insensitively so "100 plus"
      lands on the existing "100 Plus" instead of forking the tally. */
   function noteCustom(line) {
@@ -306,17 +775,22 @@ function App() {
       <header>
         <div class="brand">Kopitiam Run</div>
         <nav>
-          ${[["who", "Who's in"], ["counter", "Counter"], ["back", "Hand back"], ["set", "Setup"]].map(
+          ${[["who", "Who's in"], ["drink", "By drink"], ["counter", "Counter"], ["back", "Hand back"], ["set", "Setup"]].map(
             ([id, l]) => html`<button class=${"tab" + (screen === id ? " on" : "")} onClick=${() => setScreen(id)}>${l}</button>`
           )}
         </nav>
       </header>
 
       ${!standalone && html`<${InstallBanner} />`}
-      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen }} />`}
+      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
+      ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
+        noteCustom=${noteCustom} setScreen=${setScreen}
+        onAssign=${(who, line) => setPicked((p) => ({ ...p, [who]: line }))}
+        onOneOff=${(line) => setExtras((e) => [...e, line])} />`}
       ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
       ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
-      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, setSheet }} />`}
+      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, mergeShare,
+        groups, addGroup, removeGroup, setPersonGroups }} />`}
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
@@ -343,7 +817,13 @@ function InstallBanner() {
 }
 
 /* ---------- roster screen ---------- */
-function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen }) {
+function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }) {
+  const shown = roster.filter((p) => inGroup(p, group));
+  /* someone can be picked and then filtered out of view — say so, don't hide it */
+  const offscreen = Object.keys(picked).filter((n) => {
+    const p = roster.find((x) => x.name === n);
+    return p && !inGroup(p, group);
+  }).length;
   const off = Object.keys(picked).filter((n) => {
     const p = roster.find((r) => r.name === n);
     return p && p.usuals.indexOf(picked[n]) === -1;
@@ -356,6 +836,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
         <p>Add people as you go on the next couple of runs. After that, one tap each is all it takes —
         the app works out everyone's usual from what they actually ordered.</p>
         <button class="primary" onClick=${() => setSheet({ mode: "new" })}>Add the first person</button>
+        <button class="ghost" onClick=${() => setScreen("drink")}>Or just order drinks, no names</button>
       </div>
     </main>`;
 
@@ -369,8 +850,20 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
         <div class="hint">Grey = not tapped yet</div>
       </div>
 
+      ${groups.length > 0 && html`
+        <div class="chips groupbar">
+          <button class=${"chip grp" + (group ? "" : " on")} onClick=${() => setGroup("")}>
+            Everyone · ${roster.length}
+          </button>
+          ${groups.map((g) => html`
+            <button class=${"chip grp" + (group === g ? " on" : "")} onClick=${() => setGroup(g)}>
+              ${g} · ${roster.filter((p) => inGroup(p, g)).length}
+            </button>`)}
+        </div>
+        ${offscreen > 0 && html`<div class="note warnline">${offscreen} ${offscreen === 1 ? "person" : "people"} in this run ${offscreen === 1 ? "is" : "are"} outside ${group} — still counted, tap Everyone to see ${offscreen === 1 ? "them" : "them"}.</div>`}`}
+
       <div class="grid">
-        ${roster.map((p) => {
+        ${shown.map((p) => {
           const d = picked[p.name];
           const on = !!d;
           const changed = on && p.usuals.indexOf(d) === -1;
@@ -378,7 +871,10 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
             <div class=${"card" + (on ? " on" : "") + (changed ? " changed" : "")}>
               <button class="cardmain" onClick=${() => toggle(p.name)}>
                 <div class="name">${p.name}</div>
-                <div class="drink">${d || p.usuals[0]}</div>
+                <div class="drinkrow">
+                  <${DrinkIcon} line=${d || p.usuals[0]} size=${24} />
+                  <span class="drink">${d || p.usuals[0]}</span>
+                </div>
               </button>
               ${on && html`<button class="edit" onClick=${() => setSheet({ mode: "change", name: p.name })}>✎</button>`}
             </div>`;
@@ -387,6 +883,11 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           <div class="name">+ Someone else</div>
           <div class="drink">New person, or a spare</div>
         </button>
+        ${group && shown.length === 0 && html`
+          <div class="card add" style="grid-column:1/-1">
+            <div class="name">Nobody in ${group} yet</div>
+            <div class="drink">Setup → Groups to add people</div>
+          </div>`}
       </div>
 
       ${extras.length > 0 && html`
@@ -394,7 +895,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           <div class="label">Spare drinks, no owner</div>
           ${extras.map((d, i) => html`
             <div class="row">
-              <span>${d}</span>
+              <span class="drinkrow"><${DrinkIcon} line=${d} size=${22} />${d}</span>
               <button class="link" onClick=${() => setExtras((x) => x.filter((_, k) => k !== i))}>remove</button>
             </div>`)}
         </div>`}
@@ -448,57 +949,109 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
     <//>`;
 }
 
+function Composer({ customs, d, setD, free, setFree, onQuick }) {
+  const b = d.base ? baseOf(d.base) : null;
+  const typed = tidy(free);
+  return html`
+    ${customs && customs.length > 0 && html`
+      <div class="label">Off the menu</div>
+      <div class="chips">
+        ${customs.map((c) => html`
+          <button class="chip" onClick=${() => onQuick(c)}>
+            <${DrinkIcon} line=${c} size=${20} />${c}
+          </button>`)}
+      </div>`}
+
+    <div class="label">Build one</div>
+    <div class=${"bases" + (typed ? " dim" : "")}>
+      ${BASES.map((x) => html`
+        <button class=${"opt sm base" + (d.base === x.id ? " on" : "")} disabled=${!!typed}
+          onClick=${() => setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false })}>
+          <${DrinkIcon} line=${x.id} size=${26} />${x.id}
+        </button>`)}
+    </div>
+    <div class=${"mods" + (b && !typed ? "" : " dim")}>
+      ${GROUPS.map((g) => html`
+        <div class="modrow">
+          ${g.cards.map(([val, note]) => {
+            const dead = !b || !b[g.gate] || !!typed;
+            const on = d[g.key] === val;
+            return html`<button class=${"opt sm" + (on ? " on" : "")} disabled=${dead}
+              onClick=${() => setD((p) => ({ ...p, [g.key]: p[g.key] === val ? "" : val }))}>
+              ${val}<em>${note}</em></button>`;
+          })}
+        </div>`)}
+      <div class="modrow">
+        <button class=${"opt sm" + (d.peng ? " on" : "")} disabled=${!b || !!typed}
+          onClick=${() => setD((p) => ({ ...p, peng: !p.peng }))}>Peng<em>iced</em></button>
+      </div>
+    </div>
+
+    <div class="label">Or just type it</div>
+    <input value=${free} placeholder="Calamansi ice lemon tea, 100 Plus…"
+      onInput=${(e) => setFree(e.target.value)} />`;
+}
+
 function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
   const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
   const [free, setFree] = useState("");
-  const b = d.base ? baseOf(d.base) : null;
   const typed = tidy(free);
   const line = typed || (d.base ? recite(d) : "");
-
-  function use(text, isFree) {
-    if (isFree) noteCustom(text);
-    onAdd(text);
-  }
+  const use = (text, isFree) => { if (isFree) noteCustom(text); onAdd(text); };
 
   return html`
     <${Shell} title=${title} onCancel=${onCancel}>
-      ${customs && customs.length > 0 && html`
-        <div class="label">Off the menu</div>
-        <div class="chips">
-          ${customs.map((c) => html`<button class="chip" onClick=${() => use(c, true)}>${c}</button>`)}
-        </div>`}
-
-      <div class="label">Build one</div>
-      <div class=${"bases" + (typed ? " dim" : "")}>
-        ${BASES.map((x) => html`
-          <button class=${"opt sm" + (d.base === x.id ? " on" : "")} disabled=${!!typed}
-            onClick=${() => setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false })}>${x.id}</button>`)}
-      </div>
-      <div class=${"mods" + (b && !typed ? "" : " dim")}>
-        ${GROUPS.map((g) => html`
-          <div class="modrow">
-            ${g.cards.map(([val, note]) => {
-              const dead = !b || !b[g.gate] || !!typed;
-              const on = d[g.key] === val;
-              return html`<button class=${"opt sm" + (on ? " on" : "")} disabled=${dead}
-                onClick=${() => setD((p) => ({ ...p, [g.key]: p[g.key] === val ? "" : val }))}>
-                ${val}<em>${note}</em></button>`;
-            })}
-          </div>`)}
-        <div class="modrow">
-          <button class=${"opt sm" + (d.peng ? " on" : "")} disabled=${!b || !!typed}
-            onClick=${() => setD((p) => ({ ...p, peng: !p.peng }))}>Peng<em>iced</em></button>
-        </div>
-      </div>
-
-      <div class="label">Or just type it</div>
-      <input value=${free} placeholder="Calamansi ice lemon tea, 100 Plus…"
-        onInput=${(e) => setFree(e.target.value)} />
+      <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
+        onQuick=${(c) => use(c, true)} />
       <div class="note">Anything the buttons can't say. It becomes a chip up top next time.</div>
-
-      <div class="preview"><span>The stall will hear</span><strong>${line || "—"}</strong></div>
+      <div class="preview">
+        <${DrinkIcon} line=${line} size=${38} />
+        <div><span>The stall will hear</span><strong>${line || "—"}</strong></div>
+      </div>
       <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>Use this</button>
     <//>`;
+}
+
+/* ---------- drink-first tab: build it, then decide whose it is ---------- */
+function ByDrink({ roster, picked, customs, noteCustom, onAssign, onOneOff, setScreen }) {
+  const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
+  const [free, setFree] = useState("");
+  const typed = tidy(free);
+  const line = typed || (d.base ? recite(d) : "");
+
+  function commit(who) {
+    if (!line) return;
+    if (typed) noteCustom(line);
+    if (who) onAssign(who, line); else onOneOff(line);
+    setD({ base: null, milk: "", sugar: "", strength: "", peng: false });
+    setFree("");
+  }
+
+  return html`
+    <main>
+      <h2>Order by drink</h2>
+      <div class="sub">For guests, spares, or before anyone is on the roster.</div>
+
+      <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
+        onQuick=${(c) => { setFree(c); setD({ base: null, milk: "", sugar: "", strength: "", peng: false }); }} />
+
+      <div class="preview">
+        <${DrinkIcon} line=${line} size=${38} />
+        <div><span>The stall will hear</span><strong>${line || "—"}</strong></div>
+      </div>
+
+      ${line && html`
+        <div class="label">Whose is it?</div>
+        <div class="chips">
+          <button class="chip oneoff" onClick=${() => commit(null)}>One-off · no name</button>
+          ${roster.map((p) => html`
+            <button class=${"chip name" + (picked[p.name] ? " taken" : "")}
+              onClick=${() => commit(p.name)}>${p.name}${picked[p.name] ? " ✓" : ""}</button>`)}
+        </div>
+        <div class="note">Tapping a name that already has a drink replaces it.</div>`}
+
+      <button class="ghost" onClick=${() => setScreen("who")}>Back to the roster</button>
+    </main>`;
 }
 
 /* ---------- counter ---------- */
@@ -516,7 +1069,10 @@ function Counter({ lines, onDone }) {
     <div class="dark">
       <div class="progress"><span>Line ${i + 1} of ${lines.length}</span><span>${lines.length - i - 1} more</span></div>
       <button class="bigline" onClick=${() => setI(i + 1)}>
-        <div class="qty">${g.who.length}×</div>
+        <div class="qtyrow">
+          <span class="qty">${g.who.length}×</span>
+          <${DrinkIcon} line=${g.line} size=${58} />
+        </div>
         <div class="line">${g.line}</div>
         <div class="whos">${g.who.filter(Boolean).join(" · ")}</div>
         <div class="tapme">Tap when the uncle has it</div>
@@ -539,6 +1095,7 @@ function HandBack({ orders, onClose }) {
             <button class=${"listrow" + (on ? " done" : "")}
               onClick=${() => setDone((d) => on ? d.filter((x) => x !== i) : [...d, i])}>
               <span class="box">${on ? "✓" : ""}</span>
+              <${DrinkIcon} line=${o.drink} size=${28} />
               <span><strong>${o.who || "Spare"}</strong><em>${o.drink}</em></span>
             </button>`;
         })}
@@ -549,10 +1106,23 @@ function HandBack({ orders, onClose }) {
 }
 
 /* ---------- setup / backup ---------- */
-function Setup({ roster, setRoster, history, setHistory }) {
+function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
+                 groups, addGroup, removeGroup, setPersonGroups }) {
   const [io, setIo] = useState("");
   const [grant, setGrant] = useState(null);
+  const [showQR, setShowQR] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [newG, setNewG] = useState("");
+  const [scope, setScope] = useState("");
+  const [editing, setEditing] = useState(null);
   const dump = JSON.stringify({ roster, history });
+
+  /* sharing one group instead of everyone is the point — smaller code, less clutter */
+  const scoped = scope ? roster.filter((p) => inGroup(p, scope)) : roster;
+  const scopedGroups = scope ? [scope] : groups;
+  const full = encodeShare(scoped, customs, 3, scopedGroups);
+  const qr = bestShare(scoped, customs, scopedGroups);
+  const canScan = typeof window !== "undefined" && "BarcodeDetector" in window;
 
   useEffect(() => {
     if (navigator.storage && navigator.storage.persisted) {
@@ -560,14 +1130,44 @@ function Setup({ roster, setRoster, history, setHistory }) {
     }
   }, []);
 
-  function importNow() {
+  function receive(text) {
+    const inc = decodeShare(text);
+    if (!inc) { setMsg("That doesn't look like a Kopi Run code."); return; }
+    mergeShare(inc);
+    setIo("");
+    setMsg("Added " + inc.people.length + " " + (inc.people.length === 1 ? "person" : "people") +
+      (inc.cust.length ? " and " + inc.cust.length + " off-menu drinks" : "") + ". Nothing of yours was replaced.");
+  }
+
+  function restore() {
     try {
       const o = JSON.parse(io);
       if (Array.isArray(o.roster)) setRoster(o.roster);
       if (Array.isArray(o.history)) setHistory(o.history);
-      setIo("");
-      alert("Restored.");
-    } catch (e) { alert("That isn't a valid backup."); }
+      setIo(""); setMsg("Full backup restored.");
+    } catch (e) { setMsg("That isn't a valid backup."); }
+  }
+
+  async function scan() {
+    setMsg("");
+    try {
+      const det = new window.BarcodeDetector({ formats: ["qr_code"] });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const v = document.createElement("video");
+      v.srcObject = stream; v.setAttribute("playsinline", ""); await v.play();
+      const stop = () => stream.getTracks().forEach((t) => t.stop());
+      const t0 = Date.now();
+      const tick = async () => {
+        if (Date.now() - t0 > 20000) { stop(); setMsg("Nothing found — try the paste box."); return; }
+        try {
+          const codes = await det.detect(v);
+          if (codes.length) { stop(); receive(codes[0].rawValue); return; }
+        } catch (e) {}
+        requestAnimationFrame(tick);
+      };
+      tick();
+      setMsg("Point the camera at their code…");
+    } catch (e) { setMsg("Couldn't open the camera."); }
   }
 
   return html`
@@ -587,21 +1187,94 @@ function Setup({ roster, setRoster, history, setHistory }) {
         ${" "}Deleting the Home Screen icon deletes the roster with it, and iCloud does not back it up.
       </div>
 
-      <div class="label">Roster · ${roster.length} people, ${history.length} runs remembered</div>
+      <div class="label">Groups</div>
+      <div class="chips">
+        ${groups.map((g) => html`
+          <span class="chip grp static">${g} · ${roster.filter((p) => inGroup(p, g)).length}
+            <button class="x" onClick=${() => confirm("Delete the group " + g + "? Nobody is removed from the roster.") && removeGroup(g)}>×</button>
+          </span>`)}
+        ${groups.length === 0 && html`<span class="note">No groups yet. Everyone shows on one screen.</span>`}
+      </div>
+      <div class="btnrow">
+        <input value=${newG} placeholder="New group, e.g. Plant 5" onInput=${(e) => setNewG(e.target.value)} />
+        <button class="ghost" disabled=${!newG.trim()} onClick=${() => { addGroup(newG); setNewG(""); }}>Add</button>
+      </div>
+      <div class="note">A person can sit in more than one group. Tap anyone below to set theirs.</div>
+
+      <div class="label">Give your roster to a colleague</div>
+      ${groups.length > 0 && html`
+        <div class="chips">
+          <button class=${"chip grp" + (scope ? "" : " on")} onClick=${() => setScope("")}>Everyone</button>
+          ${groups.map((g) => html`
+            <button class=${"chip grp" + (scope === g ? " on" : "")} onClick=${() => setScope(g)}>${g}</button>`)}
+        </div>`}
+      <button class="ghost" onClick=${() => setShowQR(!showQR)}>
+        ${showQR ? "Hide the code" : "Show the code"} · ${scoped.length} people
+      </button>
+      ${showQR && html`
+        <div class="qrbox">
+          ${qr.fits
+            ? html`<${QRSvg} text=${qr.text} size=${260} />`
+            : html`<div class="warn">Too many people for one QR code. Send the text below instead.</div>`}
+          ${qr.note && html`<div class="note">${qr.note}</div>`}
+          <div class="note">
+            They scan this with their iPhone Camera, tap <b>Copy</b>, then paste it into
+            the box below in their own app. Or just AirDrop them the text.
+          </div>
+          <textarea readonly onFocus=${(e) => e.target.select()} value=${full}></textarea>
+        </div>`}
+      <div class="note">
+        Sends people and their usuals, not your run history — the usuals already are
+        the history, boiled down. Their app keeps learning from their own runs.
+      </div>
+
+      <div class="label">Receive from someone</div>
+      ${canScan
+        ? html`<button class="ghost" onClick=${scan}>Scan their code with the camera</button>`
+        : html`<div class="note">Safari has no camera-scanning API, so in-app scanning
+            can't work on iPhone. Use the iPhone <b>Camera</b> app on their code, tap
+            <b>Copy</b>, then paste below.</div>`}
+      <textarea placeholder="Paste a KR1 code, or a full backup" value=${io}
+        onInput=${(e) => setIo(e.target.value)}></textarea>
+      <div class="btnrow">
+        <button class="ghost" disabled=${!io.trim()} onClick=${() => receive(io)}>Add to my roster</button>
+        <button class="ghost" disabled=${!io.trim()} onClick=${restore}>Restore full backup</button>
+      </div>
+      ${msg && html`<div class="status ok"><strong>${msg}</strong></div>`}
+
+      <div class="label">Your people · ${roster.length}, from ${history.length} runs</div>
       <div class="list">
         ${roster.map((p) => html`
           <div class="listrow static">
-            <span><strong>${p.name}</strong><em>${p.usuals.join(" / ")}</em></span>
+            <button class="rowmain" onClick=${() => groups.length ? setEditing(p.name) : null}>
+              <strong>${p.name}</strong>
+              <em>${p.usuals.join(" / ")}</em>
+              ${groups.length > 0 && html`<em class="tags">${(p.groups || []).length ? (p.groups || []).join(" · ") : "no group"}</em>`}
+            </button>
             <button class="link" onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>remove</button>
           </div>`)}
       </div>
 
-      <div class="label">Backup</div>
-      <div class="note">Copy this somewhere safe now and then. It's the only copy that exists.</div>
+      ${editing && html`
+        <${Shell} title=${"Groups for " + editing} onCancel=${() => setEditing(null)}>
+          <div class="stack">
+            ${groups.map((g) => {
+              const on = inGroup(roster.find((x) => x.name === editing) || {}, g);
+              return html`<button class=${"opt" + (on ? " on" : "")} onClick=${() => {
+                const p = roster.find((x) => x.name === editing);
+                const gs = (p.groups || []).slice();
+                const i = gs.indexOf(g);
+                if (i > -1) gs.splice(i, 1); else gs.push(g);
+                setPersonGroups(editing, gs);
+              }}>${on ? "✓ " : ""}${g}</button>`;
+            })}
+          </div>
+          <button class="primary" onClick=${() => setEditing(null)}>Done</button>
+        <//>`}
+
+      <div class="label">Full backup</div>
+      <div class="note">Everything, history included. Copy it into Notes once a month — it's the only copy that exists.</div>
       <textarea readonly onFocus=${(e) => e.target.select()} value=${dump}></textarea>
-      <div class="label">Restore</div>
-      <textarea placeholder="Paste a backup here" value=${io} onInput=${(e) => setIo(e.target.value)}></textarea>
-      <button class="ghost" disabled=${!io.trim()} onClick=${importNow}>Restore from backup</button>
     </main>`;
 }
 
