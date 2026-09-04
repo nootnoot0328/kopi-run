@@ -1,7 +1,7 @@
 /* Caches the app so it opens with no signal.
    Only index.html exists — everything else is inlined as data URIs.
    Bump VERSION every time you edit index.html, or the phone keeps the old copy. */
-const VERSION = 'kopi-run-v2';
+const VERSION = 'kopi-run-v5';
 const SHELL = ['./', './index.html'];
 
 self.addEventListener('install', e => {
