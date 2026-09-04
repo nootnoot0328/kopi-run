@@ -146,6 +146,12 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .status.bad{border-color:var(--chilli)}
 .status.bad strong{color:var(--chilli)}
 
+/* free-text drinks that have been used before */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#fff;border:2px solid var(--amber);border-radius:999px;padding:9px 13px;
+  font-size:14px;font-weight:700;color:var(--amber-deep)}
+.bases.dim,.bases.dim .opt{opacity:.45}
+
 </style>
 </head>
 <body>
@@ -187,7 +193,12 @@ const store = {
     catch (e) { persisted = false; }
   },
 };
-const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1" };
+const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1", custom: "kr.custom.v1" };
+
+/* Anything the kopi/teh grammar can't express — canned drinks, calamansi ice
+   lemon tea, whatever the stall happens to sell. Typed once, then reusable,
+   because two spellings of the same thing become two lines at the counter. */
+const tidy = (s) => s.trim().replace(/\s+/g, " ");
 
 /* iOS: storage is only safe once the app is on the Home Screen.
    In Safari, WebKit wipes script-writable storage after 7 days of no interaction.
@@ -239,7 +250,9 @@ function App() {
   const [extras, setExtras] = useState([]);
   const [screen, setScreen] = useState("who");
   const [sheet, setSheet] = useState(null);
+  const [customs, setCustoms] = useState(() => store.get(K.custom, []));
 
+  useEffect(() => store.set(K.custom, customs), [customs]);
   useEffect(() => store.set(K.roster, roster), [roster]);
   useEffect(() => store.set(K.history, history), [history]);
   useEffect(() => store.set(K.draft, picked), [picked]);
@@ -270,6 +283,15 @@ function App() {
   }
   function addExtra(d) { setExtras((e) => [...e, d]); setSheet(null); }
 
+  /* Keep it, most recent first, matched case-insensitively so "100 plus"
+     lands on the existing "100 Plus" instead of forking the tally. */
+  function noteCustom(line) {
+    setCustoms((c) => {
+      const hit = c.find((x) => x.toLowerCase() === line.toLowerCase());
+      return [hit || line, ...c.filter((x) => x.toLowerCase() !== line.toLowerCase())].slice(0, 20);
+    });
+  }
+
   function closeRun() {
     if (!orders.length) return;
     const run = { ts: Date.now(), orders: orders.filter((o) => o.who) };
@@ -298,9 +320,11 @@ function App() {
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
+          customs=${customs} noteCustom=${noteCustom}
           onPick=${(d) => setDrink(sheet.name, d)} onCancel=${() => setSheet(null)} />`}
       ${sheet && sheet.mode === "new" && html`
-        <${NewSheet} onAdd=${addPerson} onExtra=${addExtra} onCancel=${() => setSheet(null)} />`}
+        <${NewSheet} customs=${customs} noteCustom=${noteCustom}
+          onAdd=${addPerson} onExtra=${addExtra} onCancel=${() => setSheet(null)} />`}
     </div>`;
 }
 
@@ -392,10 +416,11 @@ function Shell({ title, children, onCancel }) {
     </div>`;
 }
 
-function ChangeSheet({ person, current, onPick, onCancel }) {
+function ChangeSheet({ person, current, onPick, onCancel, customs, noteCustom }) {
   const [building, setBuilding] = useState(false);
   if (!person) return null;
-  if (building) return html`<${Builder} title=${person.name + " — today"} onCancel=${() => setBuilding(false)} onAdd=${onPick} />`;
+  if (building) return html`<${Builder} title=${person.name + " — today"} customs=${customs}
+    noteCustom=${noteCustom} onCancel=${() => setBuilding(false)} onAdd=${onPick} />`;
   return html`
     <${Shell} title=${person.name + " wants something else"} onCancel=${onCancel}>
       <div class="label">Their usual drinks</div>
@@ -407,11 +432,13 @@ function ChangeSheet({ person, current, onPick, onCancel }) {
     <//>`;
 }
 
-function NewSheet({ onAdd, onExtra, onCancel }) {
+function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
   const [name, setName] = useState("");
   const [mode, setMode] = useState(null);
-  if (mode === "person") return html`<${Builder} title=${"What does " + name + " have?"} onCancel=${() => setMode(null)} onAdd=${(d) => onAdd(name.trim(), d)} />`;
-  if (mode === "extra") return html`<${Builder} title="Spare drink, no owner" onCancel=${() => setMode(null)} onAdd=${onExtra} />`;
+  if (mode === "person") return html`<${Builder} title=${"What does " + name + " have?"} customs=${customs}
+    noteCustom=${noteCustom} onCancel=${() => setMode(null)} onAdd=${(d) => onAdd(name.trim(), d)} />`;
+  if (mode === "extra") return html`<${Builder} title="Spare drink, no owner" customs=${customs}
+    noteCustom=${noteCustom} onCancel=${() => setMode(null)} onAdd=${onExtra} />`;
   return html`
     <${Shell} title="Someone else" onCancel=${onCancel}>
       <input value=${name} placeholder="Name" onInput=${(e) => setName(e.target.value)} />
@@ -421,22 +448,37 @@ function NewSheet({ onAdd, onExtra, onCancel }) {
     <//>`;
 }
 
-function Builder({ title, onAdd, onCancel }) {
+function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
   const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
+  const [free, setFree] = useState("");
   const b = d.base ? baseOf(d.base) : null;
-  const line = d.base ? recite(d) : "";
+  const typed = tidy(free);
+  const line = typed || (d.base ? recite(d) : "");
+
+  function use(text, isFree) {
+    if (isFree) noteCustom(text);
+    onAdd(text);
+  }
+
   return html`
     <${Shell} title=${title} onCancel=${onCancel}>
-      <div class="bases">
+      ${customs && customs.length > 0 && html`
+        <div class="label">Off the menu</div>
+        <div class="chips">
+          ${customs.map((c) => html`<button class="chip" onClick=${() => use(c, true)}>${c}</button>`)}
+        </div>`}
+
+      <div class="label">Build one</div>
+      <div class=${"bases" + (typed ? " dim" : "")}>
         ${BASES.map((x) => html`
-          <button class=${"opt sm" + (d.base === x.id ? " on" : "")}
+          <button class=${"opt sm" + (d.base === x.id ? " on" : "")} disabled=${!!typed}
             onClick=${() => setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false })}>${x.id}</button>`)}
       </div>
-      <div class=${"mods" + (b ? "" : " dim")}>
+      <div class=${"mods" + (b && !typed ? "" : " dim")}>
         ${GROUPS.map((g) => html`
           <div class="modrow">
             ${g.cards.map(([val, note]) => {
-              const dead = !b || !b[g.gate];
+              const dead = !b || !b[g.gate] || !!typed;
               const on = d[g.key] === val;
               return html`<button class=${"opt sm" + (on ? " on" : "")} disabled=${dead}
                 onClick=${() => setD((p) => ({ ...p, [g.key]: p[g.key] === val ? "" : val }))}>
@@ -444,12 +486,18 @@ function Builder({ title, onAdd, onCancel }) {
             })}
           </div>`)}
         <div class="modrow">
-          <button class=${"opt sm" + (d.peng ? " on" : "")} disabled=${!b}
+          <button class=${"opt sm" + (d.peng ? " on" : "")} disabled=${!b || !!typed}
             onClick=${() => setD((p) => ({ ...p, peng: !p.peng }))}>Peng<em>iced</em></button>
         </div>
       </div>
+
+      <div class="label">Or just type it</div>
+      <input value=${free} placeholder="Calamansi ice lemon tea, 100 Plus…"
+        onInput=${(e) => setFree(e.target.value)} />
+      <div class="note">Anything the buttons can't say. It becomes a chip up top next time.</div>
+
       <div class="preview"><span>The stall will hear</span><strong>${line || "—"}</strong></div>
-      <button class="primary" disabled=${!d.base} onClick=${() => onAdd(line)}>Use this</button>
+      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>Use this</button>
     <//>`;
 }
 
