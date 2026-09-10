@@ -164,8 +164,7 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .chip.oneoff{border-color:var(--mute);color:var(--mute)}
 .preview{display:flex;align-items:center;gap:12px}
 .preview>div{min-width:0}
-.qtyrow{display:flex;align-items:center;gap:14px}
-.qtyrow .qty{font-size:56px}
+
 
 .qrbox{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px;
   margin-top:10px;text-align:center}
@@ -183,6 +182,47 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .warnline{color:var(--amber-deep);background:#FFF4E0;border-radius:9px;padding:8px;margin-top:8px}
 .rowmain{flex:1;background:none;border:none;text-align:left;padding:0;min-width:0}
 .rowmain .tags{display:block;font-size:12px;color:var(--jade);margin-top:1px}
+
+/* counter: one card per drink type, all its variants visible together */
+.famhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  border-bottom:2px solid rgba(255,255,255,.16);padding-bottom:8px;margin-bottom:12px}
+.famname{font-size:40px;font-weight:900;letter-spacing:-.03em;line-height:1}
+.famtotal{font-size:52px;font-weight:900;color:var(--amber);line-height:1;letter-spacing:-.04em}
+.sololine{display:flex;align-items:center;gap:12px;margin:6px 0}
+.sololine span{font-size:34px;font-weight:900;line-height:1.05;letter-spacing:-.03em}
+.varrow{display:flex;align-items:center;gap:11px;margin-top:10px}
+.varqty{font-size:30px;font-weight:900;color:var(--amber);min-width:30px;line-height:1}
+.varline{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.varwho{font-size:12px;color:rgba(255,255,255,.4);margin:2px 0 0 41px}
+.donerecap{margin:14px 0 4px;font-size:17px;line-height:1.6;color:rgba(255,255,255,.75)}
+.donerecap b{color:var(--amber);font-size:20px}
+
+/* counter: read-out vs check-off */
+.modebar{display:flex;gap:6px;margin-bottom:12px}
+.mtab{flex:1;background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);border:none;
+  border-radius:10px;padding:10px 8px;font-size:14px;font-weight:700}
+.mtab.on{background:var(--amber);color:var(--ink);font-weight:800}
+.tally{display:flex;align-items:baseline;gap:10px;padding:10px 0 14px;
+  border-bottom:2px solid rgba(255,255,255,.14)}
+.tallynum{font-size:46px;font-weight:900;letter-spacing:-.04em;line-height:1;color:var(--amber)}
+.tallynum em{font-style:normal;font-size:24px;color:rgba(255,255,255,.45)}
+.tallytxt{font-size:15px;color:rgba(255,255,255,.6)}
+.tally.ok .tallynum{color:#5FD39B}
+.tally.ok .tallytxt{color:#5FD39B;font-weight:800}
+.checklist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:12px 0}
+.checkfam{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.4);margin:14px 0 6px}
+.checkrow{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;padding:10px;margin-bottom:8px}
+.checkrow.full{background:rgba(95,211,155,.12);border-color:rgba(95,211,155,.45)}
+.checkhead{display:flex;align-items:center;gap:9px}
+.checkline{flex:1;font-size:18px;font-weight:800;letter-spacing:-.02em;min-width:0}
+.checkqty{font-size:14px;color:rgba(255,255,255,.5);font-variant-numeric:tabular-nums}
+.checkrow.full .checkqty{color:#5FD39B}
+.dots{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.dot{width:40px;height:40px;border-radius:11px;background:transparent;color:var(--night);
+  border:2px solid rgba(255,255,255,.28);font-size:19px;font-weight:900;line-height:1}
+.dot.on{background:#5FD39B;border-color:#5FD39B}
 
 </style>
 </head>
@@ -1055,28 +1095,141 @@ function ByDrink({ roster, picked, customs, noteCustom, onAssign, onOneOff, setS
 }
 
 /* ---------- counter ---------- */
+/* The uncle makes drinks in batches by type, and asks aggregate questions
+   ("how many teh o peng?"). Sorting by quantity scattered the variants of one
+   base across the deck, so answering meant paging back and remembering. One
+   card per base now, with every variant of it visible at once. */
+function families(lines) {
+  const order = BASES.map((b) => b.id);
+  const m = new Map();
+  lines.forEach((l) => {
+    const p = parseDrink(l.line);
+    const key = p ? p.base : "Off the menu";
+    if (!m.has(key)) m.set(key, { base: key, items: [], total: 0 });
+    const f = m.get(key);
+    f.items.push(l);
+    f.total += l.who.length;
+  });
+  const arr = [...m.values()];
+  /* canonical order within a base keeps neighbours together: plain, C…, O… */
+  arr.forEach((f) => f.items.sort((a, b) => a.line.localeCompare(b.line)));
+  arr.sort((a, b) => {
+    const ia = order.indexOf(a.base), ib = order.indexOf(b.base);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return arr;
+}
+
 function Counter({ lines, onDone }) {
   const [i, setI] = useState(0);
-  if (!lines.length) return html`<main><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
-  if (i >= lines.length) return html`
+  const [mode, setMode] = useState("read");
+  /* how many of each line are physically on the counter, keyed by the line text */
+  const [here, setHere] = useState({});
+  const fam = useMemo(() => families(lines), [lines]);
+
+  const total = lines.reduce((n, l) => n + l.who.length, 0);
+  const got = Object.keys(here).reduce((n, k) => n + here[k], 0);
+  const allHere = total > 0 && got >= total;
+
+  function setCount(line, n) { setHere((h) => ({ ...h, [line]: n })); }
+
+  if (!fam.length) return html`<main><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
+
+  const tabs = html`
+    <div class="modebar">
+      <button class=${"mtab" + (mode === "read" ? " on" : "")} onClick=${() => setMode("read")}>Read out</button>
+      <button class=${"mtab" + (mode === "check" ? " on" : "")} onClick=${() => setMode("check")}>
+        On the counter · ${got}/${total}
+      </button>
+    </div>`;
+
+  /* ---- check off what has actually landed ---- */
+  if (mode === "check") {
+    return html`
+      <div class="dark">
+        ${tabs}
+        <div class=${"tally" + (allHere ? " ok" : "")}>
+          <span class="tallynum">${got}<em>/${total}</em></span>
+          <span class="tallytxt">${allHere ? "All here — you can go" : "on the counter"}</span>
+        </div>
+
+        <div class="checklist">
+          ${fam.map((f) => html`
+            <div class="checkfam">${f.base === "Off the menu" ? "Off the menu" : f.base}</div>
+            ${f.items.map((it) => {
+              const n = here[it.line] || 0;
+              return html`
+                <div class=${"checkrow" + (n >= it.who.length ? " full" : "")}>
+                  <div class="checkhead">
+                    <${DrinkIcon} line=${it.line} size=${26} />
+                    <span class="checkline">${it.line}</span>
+                    <span class="checkqty">${n}/${it.who.length}</span>
+                  </div>
+                  <div class="dots">
+                    ${Array.from({ length: it.who.length }).map((_, k) => html`
+                      <button class=${"dot" + (k < n ? " on" : "")}
+                        aria-label=${(k < n ? "unmark " : "mark ") + it.line}
+                        onClick=${() => setCount(it.line, k + 1 === n ? k : k + 1)}>${k < n ? "✓" : ""}</button>`)}
+                  </div>
+                </div>`;
+            })}`)}
+        </div>
+
+        <button class=${allHere ? "primary" : "ghostdark"} onClick=${onDone}>
+          ${allHere ? "All here — hand them back" : "Go anyway · " + (total - got) + " still missing"}
+        </button>
+      </div>`;
+  }
+
+  /* ---- read the order out ---- */
+  if (i >= fam.length) return html`
     <div class="dark">
+      ${tabs}
       <h2>That's everything.</h2>
-      <button class="primary" onClick=${onDone}>Drinks are ready</button>
+      <div class="donerecap">
+        ${fam.map((f) => html`<div><b>${f.total}</b> ${f.base === "Off the menu" ? "off the menu" : f.base}</div>`)}
+      </div>
+      <button class="primary" onClick=${() => setMode("check")}>Tick them off as they arrive</button>
       <button class="ghostdark" onClick=${() => setI(0)}>Read again</button>
     </div>`;
-  const g = lines[i];
+
+  const f = fam[i];
+  const solo = f.items.length === 1;
+
   return html`
     <div class="dark">
-      <div class="progress"><span>Line ${i + 1} of ${lines.length}</span><span>${lines.length - i - 1} more</span></div>
+      ${tabs}
+      <div class="progress">
+        <span>${f.base} · ${i + 1} of ${fam.length}</span>
+        <span>${fam.length - i - 1} more</span>
+      </div>
+
       <button class="bigline" onClick=${() => setI(i + 1)}>
-        <div class="qtyrow">
-          <span class="qty">${g.who.length}×</span>
-          <${DrinkIcon} line=${g.line} size=${58} />
+        <div class="famhead">
+          <span class="famname">${f.base}</span>
+          <span class="famtotal">${f.total}</span>
         </div>
-        <div class="line">${g.line}</div>
-        <div class="whos">${g.who.filter(Boolean).join(" · ")}</div>
-        <div class="tapme">Tap when the uncle has it</div>
+
+        ${solo
+          ? html`
+            <div class="sololine">
+              <${DrinkIcon} line=${f.items[0].line} size=${52} />
+              <span>${f.items[0].line}</span>
+            </div>
+            <div class="whos">${f.items[0].who.filter(Boolean).join(" · ")}</div>`
+          : f.items.map((it) => html`
+            <div class="varrow">
+              <span class="varqty">${it.who.length}</span>
+              <${DrinkIcon} line=${it.line} size=${30} />
+              <span class="varline">${it.line}</span>
+            </div>
+            <div class="varwho">${it.who.filter(Boolean).join(" · ")}</div>`)}
+
+        <div class="tapme">${f.base === "Off the menu"
+          ? "Tap when the uncle has these"
+          : "Tap when the uncle has all the " + f.base.toLowerCase()}</div>
       </button>
+
       <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>He asked again</button>
     </div>`;
 }
