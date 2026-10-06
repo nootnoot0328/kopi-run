@@ -1,0 +1,111 @@
+/* Kopi Run motion layer
+   Subtle by design: quick feedback, no decorative looping, and fully disabled
+   when the user asks iOS/macOS/browser to reduce motion. */
+
+:root {
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-slow: 360ms;
+  --motion-ease: cubic-bezier(.2,.8,.2,1);
+  --motion-spring: cubic-bezier(.2,.9,.25,1.18);
+}
+
+@keyframes kr-rise-in {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes kr-pop-in {
+  0%   { opacity: 0; transform: scale(.96); }
+  70%  { opacity: 1; transform: scale(1.015); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kr-check-in {
+  0%   { transform: scale(.72); opacity: 0; }
+  70%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Major content should feel like it arrives rather than snaps into place. */
+main > *,
+.page > *,
+.card,
+.panel,
+.qrbox,
+.nag,
+.status {
+  animation: kr-rise-in var(--motion-slow) var(--motion-ease) both;
+}
+
+/* Cascade repeated rows very slightly without making long lists sluggish. */
+.listrow,
+.opt,
+.chip {
+  animation: kr-rise-in var(--motion-normal) var(--motion-ease) both;
+}
+
+.listrow:nth-child(2),
+.opt:nth-child(2),
+.chip:nth-child(2) { animation-delay: 20ms; }
+
+.listrow:nth-child(3),
+.opt:nth-child(3),
+.chip:nth-child(3) { animation-delay: 40ms; }
+
+.listrow:nth-child(n+4),
+.opt:nth-child(n+4),
+.chip:nth-child(n+4) { animation-delay: 55ms; }
+
+/* Tactile controls. */
+button,
+.opt,
+.chip,
+.listrow,
+a {
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease),
+    background-color var(--motion-normal) var(--motion-ease),
+    border-color var(--motion-normal) var(--motion-ease),
+    opacity var(--motion-normal) var(--motion-ease);
+}
+
+button:active,
+.opt:active,
+.chip:active,
+.listrow:active {
+  transform: scale(.975);
+}
+
+button:focus-visible,
+.opt:focus-visible,
+.chip:focus-visible,
+.listrow:focus-visible {
+  transform: translateY(-1px);
+}
+
+/* Selected choices get a tiny confirmation pop. */
+.opt.on,
+.chip.on,
+.listrow.done .box {
+  animation: kr-check-in var(--motion-normal) var(--motion-spring) both;
+}
+
+/* QR/result surfaces can pop a touch more because they are explicit outcomes. */
+.qrbox {
+  animation-name: kr-pop-in;
+}
+
+/* Never animate forever: Kopi Run should feel alive, not restless. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
