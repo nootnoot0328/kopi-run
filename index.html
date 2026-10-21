@@ -22,6 +22,8 @@ html,body{margin:0;background:var(--tile);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Roboto,Arial,sans-serif;
   overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 body{padding-bottom:env(safe-area-inset-bottom)}
+/* Match the page canvas and bottom safe area to the Counter view. */
+html.counter-screen,html.counter-screen body{background:var(--night);color-scheme:dark}
 /* iOS: kill double-tap zoom, long-press callout menus and text selection on controls */
 button{font:inherit;cursor:pointer;touch-action:manipulation;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;appearance:none}
@@ -145,6 +147,14 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .status.ok strong{color:var(--jade)}
 .status.bad{border-color:var(--chilli)}
 .status.bad strong{color:var(--chilli)}
+.sync-note{margin:8px 12px;font-size:12px;color:var(--mute)}
+.people-row{flex-wrap:wrap;gap:8px}
+.people-row .rowmain{min-width:0;overflow-wrap:anywhere}
+.person-actions{display:flex;align-items:center;gap:6px}
+.person-actions button{min-width:44px;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-weight:700}
+.person-actions button:disabled{opacity:.3}
+.person-actions .remove-person{color:var(--chilli)}
+.person-error{color:var(--chilli);font-size:14px;margin:8px 0}
 
 /* free-text drinks that have been used before */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -488,10 +498,13 @@ var QR = (function () {
 <script>
 if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
 </script>
+<!-- cloudflare-team-mode -->
+<script src="team.js"></script>
+<script src="people.js"></script>
 <script>
-/* Kopitiam Run — installable, offline, roster lives on this phone. */
+/* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
-const { useState, useEffect, useMemo } = preactHooks;
+const { useState, useEffect, useLayoutEffect, useMemo } = preactHooks;
 const html = htm.bind(h);
 
 /* ---------- storage: localStorage, with an in-memory fallback ---------- */
@@ -513,6 +526,9 @@ const store = {
 };
 const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1",
             custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1" };
+let team = null;
+const initial = (field, key, fallback) => team ? team.state[field] : store.get(key, fallback);
+const localKey = key => team ? key + '.team' : key;
 
 const inGroup = (p, g) => !g || (p.groups || []).indexOf(g) > -1;
 
@@ -646,6 +662,8 @@ function parseDrink(line) {
   return {
     base,
     milk: /\bO\b/.test(rest) ? "O" : /\bC\b/.test(rest) ? "C" : "",
+    sugar: ['Siu Dai', 'Kosong', 'Gah Dai'].find(value => rest.toLowerCase().includes(value.toLowerCase())) || '',
+    strength: ['Gau', 'Po', 'Di Lo'].find(value => new RegExp('\\b' + value + '\\b', 'i').test(rest)) || '',
     peng: /\bPeng\b/i.test(rest),
   };
 }
@@ -691,6 +709,7 @@ const recite = (d) => [d.base, d.milk, d.sugar, d.strength, d.peng && "Peng"].fi
 function relearn(roster, history) {
   const recent = history.slice(-30);
   return roster.map((p) => {
+    if (p.usualsLocked) return p;
     const counts = {};
     recent.forEach((run) => run.orders.forEach((o) => {
       if (o.who === p.name) counts[o.drink] = (counts[o.drink] || 0) + 1;
@@ -702,24 +721,51 @@ function relearn(roster, history) {
 
 /* ---------- app ---------- */
 function App() {
-  const [roster, setRoster] = useState(() => store.get(K.roster, []));
-  const [history, setHistory] = useState(() => store.get(K.history, []));
-  const [picked, setPicked] = useState(() => store.get(K.draft, {}));
+  const [roster, setRoster] = useState(() => initial('roster', K.roster, []));
+  const [history, setHistory] = useState(() => initial('history', K.history, []));
+  const [picked, setPicked] = useState(() => store.get(localKey(K.draft), {}));
   const [extras, setExtras] = useState([]);
   const [screen, setScreen] = useState("who");
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('counter-screen', screen === 'counter');
+    return () => document.documentElement.classList.remove('counter-screen');
+  }, [screen]);
   const [sheet, setSheet] = useState(null);
-  const [customs, setCustoms] = useState(() => store.get(K.custom, []));
-  const [groups, setGroups] = useState(() => store.get(K.groups, []));
-  const [group, setGroup] = useState(() => store.get(K.active, ""));
+  const [customs, setCustoms] = useState(() => initial('customs', K.custom, []));
+  const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
+  const [group, setGroup] = useState(() => store.get(localKey(K.active), ""));
 
-  useEffect(() => store.set(K.custom, customs), [customs]);
-  useEffect(() => store.set(K.groups, groups), [groups]);
-  useEffect(() => store.set(K.active, group), [group]);
+  useEffect(() => { if (!team) store.set(K.custom, customs); }, [customs]);
+  useEffect(() => { if (!team) store.set(K.groups, groups); }, [groups]);
+  useEffect(() => store.set(localKey(K.active), group), [group]);
   /* a deleted or renamed group must never leave the roster invisible */
   useEffect(() => { if (group && groups.indexOf(group) === -1) setGroup(""); }, [groups, group]);
-  useEffect(() => store.set(K.roster, roster), [roster]);
-  useEffect(() => store.set(K.history, history), [history]);
-  useEffect(() => store.set(K.draft, picked), [picked]);
+  useEffect(() => { if (!team) store.set(K.roster, roster); }, [roster]);
+  useEffect(() => { if (!team) store.set(K.history, history); }, [history]);
+  useEffect(() => store.set(localKey(K.draft), picked), [picked]);
+  useEffect(() => {
+    if (team) team.queue({ roster, history, customs, groups });
+  }, [roster, history, customs, groups]);
+  useEffect(() => {
+    if (!team) return;
+    const unsubscribe = team.subscribe((state, previous) => {
+      if (!state) return;
+      setPicked(picked => KopiPeople.reconcile(previous.roster, state.roster, picked));
+      setRoster(state.roster); setHistory(state.history);
+      setCustoms(state.customs); setGroups(state.groups); setSheet(null);
+    });
+    const refresh = () => { if (!document.hidden) void team.refresh(); };
+    const interval = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    const warn = event => { if (team.pending) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', warn);
+    return () => {
+      unsubscribe(); clearInterval(interval);
+      window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh);
+      window.removeEventListener('beforeunload', warn);
+    };
+  }, []);
 
   const orders = useMemo(() => [
     ...Object.keys(picked).map((who) => ({ who, drink: picked[who] })),
@@ -740,8 +786,13 @@ function App() {
     });
   }
   function setDrink(name, drink) { setPicked((p) => ({ ...p, [name]: drink })); setSheet(null); }
+  function setUsualDrink(name, oldDrink, drink) {
+    setRoster(roster => roster.map(person => person.name === name ? KopiPeople.setUsual(person, oldDrink, drink) : person));
+    setDrink(name, drink);
+  }
   function addPerson(name, drink) {
-    setRoster((r) => r.some((x) => x.name === name) ? r : [...r, { name, usuals: [drink] }]);
+    name = roster.find(p => p.name.toLowerCase() === name.toLowerCase())?.name || name;
+    setRoster((r) => r.some((x) => x.name.toLowerCase() === name.toLowerCase()) ? r : [...r, { id: crypto.randomUUID(), name, usuals: [drink] }]);
     setPicked((p) => ({ ...p, [name]: drink }));
     setSheet(null);
   }
@@ -750,6 +801,16 @@ function App() {
   /* Merge, never replace — a colleague importing your roster keeps their own. */
   function setPersonGroups(name, gs) {
     setRoster((r) => r.map((p) => (p.name === name ? { ...p, groups: gs } : p)));
+  }
+  function renamePerson(oldName, name) {
+    try {
+      const next = KopiPeople.rename({ roster, history, picked }, oldName, name);
+      setRoster(next.roster); setHistory(next.history); setPicked(next.picked);
+      return { name: next.name };
+    } catch (error) { return { error: error.message }; }
+  }
+  function movePerson(name, direction) {
+    setRoster(roster => KopiPeople.move(roster, name, direction));
   }
   function addGroup(name) {
     const n = clean(name);
@@ -766,7 +827,7 @@ function App() {
       const out = r.map((x) => ({ ...x, usuals: x.usuals.slice() }));
       inc.people.forEach((p) => {
         const ex = out.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
-        if (!ex) out.push({ name: p.name, usuals: p.usuals.slice(0, 3) });
+        if (!ex) out.push({ id: crypto.randomUUID(), name: p.name, usuals: p.usuals.slice(0, 3) });
         else p.usuals.forEach((u) => { if (ex.usuals.indexOf(u) === -1 && ex.usuals.length < 3) ex.usuals.push(u); });
       });
       return out;
@@ -821,7 +882,7 @@ function App() {
         </nav>
       </header>
 
-      ${!standalone && html`<${InstallBanner} />`}
+      ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
       ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
@@ -829,17 +890,44 @@ function App() {
         onOneOff=${(line) => setExtras((e) => [...e, line])} />`}
       ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
       ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
-      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, mergeShare,
-        groups, addGroup, removeGroup, setPersonGroups }} />`}
+      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
+        groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }} />`}
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
           customs=${customs} noteCustom=${noteCustom}
+          onSaveUsual=${(oldDrink, drink) => setUsualDrink(sheet.name, oldDrink, drink)}
           onPick=${(d) => setDrink(sheet.name, d)} onCancel=${() => setSheet(null)} />`}
       ${sheet && sheet.mode === "new" && html`
         <${NewSheet} customs=${customs} noteCustom=${noteCustom}
           onAdd=${addPerson} onExtra=${addExtra} onCancel=${() => setSheet(null)} />`}
     </div>`;
+}
+
+function downloadTeamEdits() {
+  const blob = new Blob([team.pending || team.saved], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = 'kopi-run-unsaved-edits.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function TeamStatus({ detailed }) {
+  const [, update] = useState(0);
+  useEffect(() => team.subscribe(() => update(n => n + 1)), []);
+  if (team.status === 'saved') return detailed
+    ? html`<p class="sync-note" role="status">✓ Team changes saved</p>` : null;
+  if (team.status === 'saving') return html`<p class="sync-note" role="status" aria-live="polite">Saving team changes…</p>`;
+  return html`<div class=${'nag status ' + (team.status === 'saved' ? 'ok' : 'bad')} role="status" aria-live="polite">
+    <strong>${team.message}</strong>
+    ${team.status === 'saved' && html`<span>One shared list for the team. Your current order stays on this device.</span>`}
+    ${team.status === 'error' && html`<button class="ghost" onClick=${() => team.flush()}>Retry saving</button>
+      <button class="link" onClick=${downloadTeamEdits}>Download unsaved edits</button>`}
+    ${team.status === 'offline' && html`<button class="ghost" onClick=${() => team.refresh()}>Refresh team list</button>`}
+    ${team.status === 'conflict' && html`<button class="ghost" onClick=${() => {
+      downloadTeamEdits(); team.pending = null; location.reload();
+    }}>Download edits and load latest</button>`}
+  </div>`;
 }
 
 /* ---------- install nag: the roster is not safe until this is gone ---------- */
@@ -887,7 +975,6 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           <div class="big">${orders.length}<span> in</span></div>
           <div class="sub">${lines.length} lines${off ? ` · ${off} not their usual` : ""}</div>
         </div>
-        <div class="hint">Grey = not tapped yet</div>
       </div>
 
       ${groups.length > 0 && html`
@@ -957,19 +1044,25 @@ function Shell({ title, children, onCancel }) {
     </div>`;
 }
 
-function ChangeSheet({ person, current, onPick, onCancel, customs, noteCustom }) {
+function ChangeSheet({ person, current, onPick, onSaveUsual, onCancel, customs, noteCustom }) {
   const [building, setBuilding] = useState(false);
+  const [editingUsual, setEditingUsual] = useState(null);
   if (!person) return null;
+  if (editingUsual !== null) return html`<${Builder} title=${person.name + ' — edit usual drink'}
+    initialLine=${editingUsual} buttonText="Save usual drink"
+    helpText="Saved for future runs and used for this order."
+    customs=${customs} noteCustom=${noteCustom} onCancel=${() => setEditingUsual(null)}
+    onAdd=${drink => onSaveUsual(editingUsual, drink)} />`;
   if (building) return html`<${Builder} title=${person.name + " — today"} customs=${customs}
     noteCustom=${noteCustom} onCancel=${() => setBuilding(false)} onAdd=${onPick} />`;
   return html`
     <${Shell} title=${person.name + " wants something else"} onCancel=${onCancel}>
-      <div class="label">Their usual drinks</div>
+      <div class="label">Their usual drinks · tap to edit</div>
       <div class="stack">
         ${person.usuals.map((u) => html`
-          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => onPick(u)}>${u}</button>`)}
+          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => setEditingUsual(u)}>${u}</button>`)}
       </div>
-      <button class="ghost" onClick=${() => setBuilding(true)}>Build something different</button>
+      <button class="ghost" onClick=${() => setBuilding(true)}>Drink something different today</button>
     <//>`;
 }
 
@@ -982,7 +1075,7 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
     noteCustom=${noteCustom} onCancel=${() => setMode(null)} onAdd=${onExtra} />`;
   return html`
     <${Shell} title="Someone else" onCancel=${onCancel}>
-      <input value=${name} placeholder="Name" onInput=${(e) => setName(e.target.value)} />
+      <input value=${name} placeholder="Name" maxlength="200" onInput=${(e) => setName(e.target.value)} />
       <button class="primary" disabled=${!name.trim()} onClick=${() => setMode("person")}>Add to roster</button>
       <div class="note">They become a card next time, with this as their usual.</div>
       <button class="ghost" onClick=${() => setMode("extra")}>Just a spare drink, nobody's</button>
@@ -1028,13 +1121,15 @@ function Composer({ customs, d, setD, free, setFree, onQuick }) {
     </div>
 
     <div class="label">Or just type it</div>
-    <input value=${free} placeholder="Calamansi ice lemon tea, 100 Plus…"
+    <input value=${free} maxlength="200" placeholder="Calamansi ice lemon tea, 100 Plus…"
       onInput=${(e) => setFree(e.target.value)} />`;
 }
 
-function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
-  const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
-  const [free, setFree] = useState("");
+function Builder({ title, onAdd, onCancel, customs, noteCustom, initialLine = '', buttonText = 'Use this', helpText }) {
+  const recipe = parseDrink(initialLine);
+  const isRecipe = recipe && recite(recipe) === initialLine;
+  const [d, setD] = useState(() => isRecipe ? recipe : { base: null, milk: "", sugar: "", strength: "", peng: false });
+  const [free, setFree] = useState(() => isRecipe ? '' : initialLine);
   const typed = tidy(free);
   const line = typed || (d.base ? recite(d) : "");
   const use = (text, isFree) => { if (isFree) noteCustom(text); onAdd(text); };
@@ -1043,12 +1138,12 @@ function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
     <${Shell} title=${title} onCancel=${onCancel}>
       <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
         onQuick=${(c) => use(c, true)} />
-      <div class="note">Anything the buttons can't say. It becomes a chip up top next time.</div>
+      <div class="note">${helpText || "Anything the buttons can't say. It becomes a chip up top next time."}</div>
       <div class="preview">
         <${DrinkIcon} line=${line} size=${38} />
         <div><span>The stall will hear</span><strong>${line || "—"}</strong></div>
       </div>
-      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>Use this</button>
+      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>${buttonText}</button>
     <//>`;
 }
 
@@ -1133,7 +1228,7 @@ function Counter({ lines, onDone }) {
 
   function setCount(line, n) { setHere((h) => ({ ...h, [line]: n })); }
 
-  if (!fam.length) return html`<main><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
+  if (!fam.length) return html`<main class="dark"><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
 
   const tabs = html`
     <div class="modebar">
@@ -1225,12 +1320,10 @@ function Counter({ lines, onDone }) {
             </div>
             <div class="varwho">${it.who.filter(Boolean).join(" · ")}</div>`)}
 
-        <div class="tapme">${f.base === "Off the menu"
-          ? "Tap when the uncle has these"
-          : "Tap when the uncle has all the " + f.base.toLowerCase()}</div>
+        <div class="tapme">Tap when all these drinks are on the counter</div>
       </button>
 
-      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>He asked again</button>
+      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>Repeat order</button>
     </div>`;
 }
 
@@ -1254,13 +1347,13 @@ function HandBack({ orders, onClose }) {
         })}
       </div>
       <button class="primary" onClick=${onClose}>Finish run and learn from it</button>
-      <div class="note">Closing the run updates everyone's usual from what they actually took.</div>
+      <div class="note">Closing the run learns from what people took. Manually edited usuals stay as saved.</div>
     </main>`;
 }
 
 /* ---------- setup / backup ---------- */
-function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
-                 groups, addGroup, removeGroup, setPersonGroups }) {
+function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
+                 groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }) {
   const [io, setIo] = useState("");
   const [grant, setGrant] = useState(null);
   const [showQR, setShowQR] = useState(false);
@@ -1268,7 +1361,21 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   const [newG, setNewG] = useState("");
   const [scope, setScope] = useState("");
   const [editing, setEditing] = useState(null);
-  const dump = JSON.stringify({ roster, history });
+  const [personName, setPersonName] = useState('');
+  const [personError, setPersonError] = useState('');
+  function editPerson(person) {
+    setEditing(person.name); setPersonName(person.name); setPersonError('');
+  }
+  useEffect(() => {
+    if (editing && !roster.some(person => person.name === editing)) setEditing(null);
+  }, [roster, editing]);
+  function saveName(event) {
+    event.preventDefault();
+    const result = renamePerson(editing, personName);
+    if (result.error) { setPersonError(result.error); return; }
+    setEditing(result.name); setPersonName(result.name); setPersonError('');
+  }
+  const dump = JSON.stringify({ roster, history, customs, groups });
 
   /* sharing one group instead of everyone is the point — smaller code, less clutter */
   const scoped = scope ? roster.filter((p) => inGroup(p, scope)) : roster;
@@ -1295,9 +1402,22 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   function restore() {
     try {
       const o = JSON.parse(io);
+      const texts = (a, max) => Array.isArray(a) && a.length <= max && a.every(s => typeof s === 'string' && s.trim() && s.length <= 200);
+      if (!Array.isArray(o.roster) || o.roster.length > 500 || !o.roster.every(p => p &&
+          texts([p.name], 1) && texts(p.usuals, 3) && p.usuals.length &&
+          (p.groups === undefined || texts(p.groups, 100))) ||
+          new Set(o.roster.map(p => p.name.toLowerCase())).size !== o.roster.length ||
+          !Array.isArray(o.history) || o.history.length > 60 || !o.history.every(r => r &&
+            Number.isSafeInteger(r.ts) && r.ts >= 0 && Array.isArray(r.orders) && r.orders.length <= 1000 &&
+            r.orders.every(order => order && texts([order.who, order.drink], 2))) ||
+          (o.customs !== undefined && !texts(o.customs, 20)) ||
+          (o.groups !== undefined && !texts(o.groups, 100))) throw new Error('Invalid backup');
+      if (team && !confirm('Replace the shared team roster and history with this backup?')) return;
       if (Array.isArray(o.roster)) setRoster(o.roster);
       if (Array.isArray(o.history)) setHistory(o.history);
-      setIo(""); setMsg("Full backup restored.");
+      if (Array.isArray(o.customs)) setCustoms(o.customs);
+      if (Array.isArray(o.groups)) setGroups(o.groups);
+      setIo(""); setMsg(team ? "Backup loaded. Check the save status above." : "Full backup restored.");
     } catch (e) { setMsg("That isn't a valid backup."); }
   }
 
@@ -1326,9 +1446,16 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   return html`
     <main>
       <h2>Setup</h2>
-      ${!persisted && html`<div class="warn">This browser is blocking storage. Your roster will vanish when you close the tab. Use the backup box below.</div>`}
+      ${!team && !persisted && html`<div class="warn">This browser is blocking storage. Your roster will vanish when you close the tab. Use the backup box below.</div>`}
 
       <div class="label">Storage</div>
+      ${team ? html`<div class="status ok"><strong>Shared team storage</strong>
+        <span>Roster, usual drinks, groups, and completed runs are saved in the cloud. No installation needed.
+        Everyone with the invitation link can view and edit this list.</span></div>
+        <div class="btnrow"><button class="ghost" onClick=${async () => {
+          try { await navigator.clipboard.writeText(location.href); setMsg('Team link copied.'); }
+          catch { setMsg('Copy the full link from your address bar, including #team=.'); }
+        }}>Copy team link</button></div>` : html`
       <div class=${"status " + (standalone ? "ok" : "bad")}>
         <strong>${standalone ? "Installed on the Home Screen" : "Running in the browser"}</strong>
         <span>${standalone
@@ -1338,7 +1465,7 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <div class="note">
         Persistent-storage grant: ${grant === null ? "unknown" : grant ? "yes" : "not granted"}.
         ${" "}Deleting the Home Screen icon deletes the roster with it, and iCloud does not back it up.
-      </div>
+      </div>`}
 
       <div class="label">Groups</div>
       <div class="chips">
@@ -1349,11 +1476,15 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
         ${groups.length === 0 && html`<span class="note">No groups yet. Everyone shows on one screen.</span>`}
       </div>
       <div class="btnrow">
-        <input value=${newG} placeholder="New group, e.g. Plant 5" onInput=${(e) => setNewG(e.target.value)} />
+        <input value=${newG} maxlength="200" placeholder="New group, e.g. Plant 5" onInput=${(e) => setNewG(e.target.value)} />
         <button class="ghost" disabled=${!newG.trim()} onClick=${() => { addGroup(newG); setNewG(""); }}>Add</button>
       </div>
       <div class="note">A person can sit in more than one group. Tap anyone below to set theirs.</div>
 
+      ${team ? html`<div class="label">Share the team link</div>
+        <button class="ghost" onClick=${() => setShowQR(!showQR)}>${showQR ? 'Hide QR code' : 'Show team QR code'}</button>
+        ${showQR && html`<div class="qrbox"><${QRSvg} text=${location.href} size=${260} />
+          <div class="note">Scan to open this same team list. Everyone with this link can edit it.</div></div>`}` : html`
       <div class="label">Give your roster to a colleague</div>
       ${groups.length > 0 && html`
         <div class="chips">
@@ -1379,9 +1510,9 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <div class="note">
         Sends people and their usuals, not your run history — the usuals already are
         the history, boiled down. Their app keeps learning from their own runs.
-      </div>
+      </div>`}
 
-      <div class="label">Receive from someone</div>
+      <div class="label">${team ? 'Import an existing roster (once for the whole team)' : 'Receive from someone'}</div>
       ${canScan
         ? html`<button class="ghost" onClick=${scan}>Scan their code with the camera</button>`
         : html`<div class="note">Safari has no camera-scanning API, so in-app scanning
@@ -1390,31 +1521,45 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <textarea placeholder="Paste a KR1 code, or a full backup" value=${io}
         onInput=${(e) => setIo(e.target.value)}></textarea>
       <div class="btnrow">
-        <button class="ghost" disabled=${!io.trim()} onClick=${() => receive(io)}>Add to my roster</button>
+        <button class="ghost" disabled=${!io.trim()} onClick=${() => receive(io)}>${team ? 'Add to team roster' : 'Add to my roster'}</button>
         <button class="ghost" disabled=${!io.trim()} onClick=${restore}>Restore full backup</button>
       </div>
       ${msg && html`<div class="status ok"><strong>${msg}</strong></div>`}
 
       <div class="label">Your people · ${roster.length}, from ${history.length} runs</div>
+      <div class="note">Edit a name, or use ↑ and ↓ to arrange the people tags. The order is shared with your team.</div>
       <div class="list">
-        ${roster.map((p) => html`
-          <div class="listrow static">
-            <button class="rowmain" onClick=${() => groups.length ? setEditing(p.name) : null}>
+        ${roster.map((p, index) => html`
+          <div class="listrow static people-row">
+            <button class="rowmain" aria-label=${'Edit ' + p.name} onClick=${() => editPerson(p)}>
               <strong>${p.name}</strong>
               <em>${p.usuals.join(" / ")}</em>
               ${groups.length > 0 && html`<em class="tags">${(p.groups || []).length ? (p.groups || []).join(" · ") : "no group"}</em>`}
             </button>
-            <button class="link" onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>remove</button>
+            <div class="person-actions">
+              <button aria-label=${'Move ' + p.name + ' up'} disabled=${index === 0} onClick=${() => movePerson(p.name, -1)}>↑</button>
+              <button aria-label=${'Move ' + p.name + ' down'} disabled=${index === roster.length - 1} onClick=${() => movePerson(p.name, 1)}>↓</button>
+              <button aria-label=${'Edit name for ' + p.name} onClick=${() => editPerson(p)}>Edit</button>
+              <button class="remove-person" aria-label=${'Remove ' + p.name} onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>×</button>
+            </div>
           </div>`)}
       </div>
 
       ${editing && html`
-        <${Shell} title=${"Groups for " + editing} onCancel=${() => setEditing(null)}>
+        <${Shell} title=${"Edit " + editing} onCancel=${() => setEditing(null)}>
+          <form onSubmit=${saveName}>
+            <label for="person-name">Name</label>
+            <input id="person-name" value=${personName} maxlength="200" onInput=${event => setPersonName(event.target.value)} />
+            ${personError && html`<p class="person-error" role="alert">${personError}</p>`}
+            <button class="ghost" type="submit" disabled=${!personName.trim() || personName.trim() === editing}>Save name</button>
+          </form>
+          ${groups.length > 0 && html`<div class="label">Groups</div>`}
           <div class="stack">
             ${groups.map((g) => {
               const on = inGroup(roster.find((x) => x.name === editing) || {}, g);
               return html`<button class=${"opt" + (on ? " on" : "")} onClick=${() => {
                 const p = roster.find((x) => x.name === editing);
+                if (!p) return;
                 const gs = (p.groups || []).slice();
                 const i = gs.indexOf(g);
                 if (i > -1) gs.splice(i, 1); else gs.push(g);
@@ -1426,12 +1571,31 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
         <//>`}
 
       <div class="label">Full backup</div>
-      <div class="note">Everything, history included. Copy it into Notes once a month — it's the only copy that exists.</div>
+      <div class="note">${team ? 'Optional export of the shared roster, groups, drinks, and completed runs. Wait for the saved status before copying.' : "Everything, history included. Copy it into Notes once a month — it's the only copy that exists."}</div>
       <textarea readonly onFocus=${(e) => e.target.select()} value=${dump}></textarea>
     </main>`;
 }
 
-render(html`<${App} />`, document.getElementById("root"));
+async function boot() {
+  const root = document.getElementById('root');
+  if (!window.KOPI_TEAM_MODE) { render(html`<${App} />`, root); return; }
+  const token = new URLSearchParams(location.hash.slice(1)).get('team');
+  if (!token || !/^[A-Za-z0-9_-]{43,128}$/.test(token)) {
+    render(html`<main><h2>Open your team link</h2><p>Use the full invitation link shared by your colleague to load the team drinks list.</p></main>`, root);
+    return;
+  }
+  render(html`<main><h2>Loading your team…</h2></main>`, root);
+  try {
+    team = new KopiTeamSync(token);
+    await team.load();
+    render(html`<${App} />`, root);
+  } catch (error) {
+    team = null;
+    render(html`<main><h2>Could not load the team list</h2><p>${error.message}</p>
+      <button class="ghost" onClick=${boot}>Try again</button></main>`, root);
+  }
+}
+void boot();
 
 </script>
 <script>

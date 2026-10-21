@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kopi-run",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-21",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": true },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "kopi-run",
+    "database_id": "cdabf145-5f48-4bcc-995b-472406d4dfd0",
+    "migrations_dir": "migrations"
+  }]
+}
