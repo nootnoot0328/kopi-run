@@ -22,6 +22,8 @@ html,body{margin:0;background:var(--tile);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Roboto,Arial,sans-serif;
   overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 body{padding-bottom:env(safe-area-inset-bottom)}
+/* Match the page canvas and bottom safe area to the Counter view. */
+html.counter-screen,html.counter-screen body{background:var(--night);color-scheme:dark}
 /* iOS: kill double-tap zoom, long-press callout menus and text selection on controls */
 button{font:inherit;cursor:pointer;touch-action:manipulation;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;appearance:none}
@@ -502,7 +504,7 @@ if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist()
 <script>
 /* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
-const { useState, useEffect, useMemo } = preactHooks;
+const { useState, useEffect, useLayoutEffect, useMemo } = preactHooks;
 const html = htm.bind(h);
 
 /* ---------- storage: localStorage, with an in-memory fallback ---------- */
@@ -721,6 +723,10 @@ function App() {
   const [picked, setPicked] = useState(() => store.get(localKey(K.draft), {}));
   const [extras, setExtras] = useState([]);
   const [screen, setScreen] = useState("who");
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('counter-screen', screen === 'counter');
+    return () => document.documentElement.classList.remove('counter-screen');
+  }, [screen]);
   const [sheet, setSheet] = useState(null);
   const [customs, setCustoms] = useState(() => initial('customs', K.custom, []));
   const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
@@ -1209,7 +1215,7 @@ function Counter({ lines, onDone }) {
 
   function setCount(line, n) { setHere((h) => ({ ...h, [line]: n })); }
 
-  if (!fam.length) return html`<main><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
+  if (!fam.length) return html`<main class="dark"><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
 
   const tabs = html`
     <div class="modebar">
