@@ -9,6 +9,15 @@ const token = 'a'.repeat(43);
 const empty = () => ({ roster: [], history: [], customs: [], groups: [] });
 const changed = name => ({ ...empty(), roster: [{ name, usuals: ['Kopi O'] }] });
 
+test('asset revalidation preserves a bodyless 304 response', async () => {
+  const env = { ASSETS: { fetch: async () => new Response(null, { status: 304 }) } };
+  for (const path of ['/', '/team.js']) {
+    const result = await worker.fetch(new Request('https://kopi.test' + path), env);
+    assert.equal(result.status, 304);
+    assert.equal(result.body, null);
+  }
+});
+
 test('D1 API: protected access, durable saves, validation and concurrent writes', async t => {
   const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, script: 'export default { fetch() { return new Response("ok"); } }', d1Databases: ['DB'] }));
   t.after(() => mf.dispose());

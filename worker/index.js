@@ -77,6 +77,7 @@ export default {
       headers.set('X-Content-Type-Options', 'nosniff');
       headers.set('Cache-Control', 'no-cache');
       headers.set('X-Robots-Tag', 'noindex, nofollow');
+      if (response.status === 304) return new Response(null, { status: 304, headers });
       if (path === '/' || path === '/index.html') {
         const body = (await response.text()).replace('<!-- cloudflare-team-mode -->', '<script>window.KOPI_TEAM_MODE = true;</script>');
         return new Response(body, { status: response.status, headers });
