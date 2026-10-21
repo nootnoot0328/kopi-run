@@ -975,7 +975,6 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           <div class="big">${orders.length}<span> in</span></div>
           <div class="sub">${lines.length} lines${off ? ` · ${off} not their usual` : ""}</div>
         </div>
-        <div class="hint">Grey = not tapped yet</div>
       </div>
 
       ${groups.length > 0 && html`
@@ -1063,7 +1062,7 @@ function ChangeSheet({ person, current, onPick, onSaveUsual, onCancel, customs, 
         ${person.usuals.map((u) => html`
           <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => setEditingUsual(u)}>${u}</button>`)}
       </div>
-      <button class="ghost" onClick=${() => setBuilding(true)}>Build something different</button>
+      <button class="ghost" onClick=${() => setBuilding(true)}>Drink something different today</button>
     <//>`;
 }
 
@@ -1321,12 +1320,10 @@ function Counter({ lines, onDone }) {
             </div>
             <div class="varwho">${it.who.filter(Boolean).join(" · ")}</div>`)}
 
-        <div class="tapme">${f.base === "Off the menu"
-          ? "Tap when the uncle has these"
-          : "Tap when the uncle has all the " + f.base.toLowerCase()}</div>
+        <div class="tapme">Tap when all these drinks are on the counter</div>
       </button>
 
-      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>He asked again</button>
+      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>Repeat order</button>
     </div>`;
 }
 

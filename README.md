@@ -18,7 +18,7 @@ saving progress or actionable connection/conflict errors.
 To edit a usual, select the person on Who's in, tap the pencil, then tap their
 usual drink. The editor starts with that drink's existing options; choose
 **Save usual drink** to update the shared usual and today's order. Manually
-edited usuals are retained when runs finish. **Build something different**
+edited usuals are retained when runs finish. **Drink something different today**
 continues to change only the current order.
 
 Anyone holding the invitation can read and edit the shared data. The random
