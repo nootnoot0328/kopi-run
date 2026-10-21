@@ -8,6 +8,13 @@ Cloudflare D1. Current order selections and the active group stay on each device
 The page loads the cloud list before rendering, saves changes automatically, and
 refreshes other colleagues' changes every 15 seconds and when the window regains focus.
 
+Use **Setup → Your people → Edit** to rename a person. Their usual drinks, groups,
+completed-run history, and current selections are retained. The **↑ / ↓** buttons
+change the shared tag order on Who's in and By drink. Names must be nonempty and
+unique (ignoring case). The main roster also has **Edit names & arrange people**.
+The saved notice appears as a small line in Setup; other screens show only
+saving progress or actionable connection/conflict errors.
+
 Anyone holding the invitation can read and edit the shared data. The random
 invitation token stays in the URL fragment, is sent to the API as a bearer token,
 and is stored on the server only as a SHA-256 hash. There is no public roster
@@ -88,7 +95,7 @@ npm test
 Tests exercise actual local D1 storage, rejected unauthorized requests, schema
 and body limits, simultaneous saves, stale writes, client conflicts, retry after
 network failure, and a refresh response arriving after a newer save. `npm run
-deploy` builds an explicit three-file asset folder so repository files and
+deploy` builds an explicit four-file asset folder so repository files and
 secrets cannot be served accidentally.
 
 Subsequent deployments: `npm ci`, `npm test`, `npm run deploy`. Secrets and D1

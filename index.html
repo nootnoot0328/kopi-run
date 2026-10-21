@@ -145,6 +145,14 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .status.ok strong{color:var(--jade)}
 .status.bad{border-color:var(--chilli)}
 .status.bad strong{color:var(--chilli)}
+.sync-note{margin:8px 12px;font-size:12px;color:var(--mute)}
+.people-row{flex-wrap:wrap;gap:8px}
+.people-row .rowmain{min-width:0;overflow-wrap:anywhere}
+.person-actions{display:flex;align-items:center;gap:6px}
+.person-actions button{min-width:44px;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-weight:700}
+.person-actions button:disabled{opacity:.3}
+.person-actions .remove-person{color:var(--chilli)}
+.person-error{color:var(--chilli);font-size:14px;margin:8px 0}
 
 /* free-text drinks that have been used before */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -490,6 +498,7 @@ if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist()
 </script>
 <!-- cloudflare-team-mode -->
 <script src="team.js"></script>
+<script src="people.js"></script>
 <script>
 /* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
@@ -730,8 +739,9 @@ function App() {
   }, [roster, history, customs, groups]);
   useEffect(() => {
     if (!team) return;
-    const unsubscribe = team.subscribe(state => {
+    const unsubscribe = team.subscribe((state, previous) => {
       if (!state) return;
+      setPicked(picked => KopiPeople.reconcile(previous.roster, state.roster, picked));
       setRoster(state.roster); setHistory(state.history);
       setCustoms(state.customs); setGroups(state.groups); setSheet(null);
     });
@@ -769,7 +779,7 @@ function App() {
   function setDrink(name, drink) { setPicked((p) => ({ ...p, [name]: drink })); setSheet(null); }
   function addPerson(name, drink) {
     name = roster.find(p => p.name.toLowerCase() === name.toLowerCase())?.name || name;
-    setRoster((r) => r.some((x) => x.name.toLowerCase() === name.toLowerCase()) ? r : [...r, { name, usuals: [drink] }]);
+    setRoster((r) => r.some((x) => x.name.toLowerCase() === name.toLowerCase()) ? r : [...r, { id: crypto.randomUUID(), name, usuals: [drink] }]);
     setPicked((p) => ({ ...p, [name]: drink }));
     setSheet(null);
   }
@@ -778,6 +788,16 @@ function App() {
   /* Merge, never replace — a colleague importing your roster keeps their own. */
   function setPersonGroups(name, gs) {
     setRoster((r) => r.map((p) => (p.name === name ? { ...p, groups: gs } : p)));
+  }
+  function renamePerson(oldName, name) {
+    try {
+      const next = KopiPeople.rename({ roster, history, picked }, oldName, name);
+      setRoster(next.roster); setHistory(next.history); setPicked(next.picked);
+      return { name: next.name };
+    } catch (error) { return { error: error.message }; }
+  }
+  function movePerson(name, direction) {
+    setRoster(roster => KopiPeople.move(roster, name, direction));
   }
   function addGroup(name) {
     const n = clean(name);
@@ -794,7 +814,7 @@ function App() {
       const out = r.map((x) => ({ ...x, usuals: x.usuals.slice() }));
       inc.people.forEach((p) => {
         const ex = out.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
-        if (!ex) out.push({ name: p.name, usuals: p.usuals.slice(0, 3) });
+        if (!ex) out.push({ id: crypto.randomUUID(), name: p.name, usuals: p.usuals.slice(0, 3) });
         else p.usuals.forEach((u) => { if (ex.usuals.indexOf(u) === -1 && ex.usuals.length < 3) ex.usuals.push(u); });
       });
       return out;
@@ -849,7 +869,7 @@ function App() {
         </nav>
       </header>
 
-      ${team ? html`<${TeamStatus} />` : !standalone && html`<${InstallBanner} />`}
+      ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
       ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
@@ -858,7 +878,7 @@ function App() {
       ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
       ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
       ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
-        groups, setGroups, addGroup, removeGroup, setPersonGroups }} />`}
+        groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }} />`}
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
@@ -878,9 +898,12 @@ function downloadTeamEdits() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function TeamStatus() {
+function TeamStatus({ detailed }) {
   const [, update] = useState(0);
   useEffect(() => team.subscribe(() => update(n => n + 1)), []);
+  if (team.status === 'saved') return detailed
+    ? html`<p class="sync-note" role="status">✓ Team changes saved</p>` : null;
+  if (team.status === 'saving') return html`<p class="sync-note" role="status" aria-live="polite">Saving team changes…</p>`;
   return html`<div class=${'nag status ' + (team.status === 'saved' ? 'ok' : 'bad')} role="status" aria-live="polite">
     <strong>${team.message}</strong>
     ${team.status === 'saved' && html`<span>One shared list for the team. Your current order stays on this device.</span>`}
@@ -980,6 +1003,8 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
             <div class="drink">Setup → Groups to add people</div>
           </div>`}
       </div>
+
+      <button class="ghost" onClick=${() => setScreen('set')}>Edit names & arrange people</button>
 
       ${extras.length > 0 && html`
         <div class="panel">
@@ -1311,7 +1336,7 @@ function HandBack({ orders, onClose }) {
 
 /* ---------- setup / backup ---------- */
 function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
-                 groups, setGroups, addGroup, removeGroup, setPersonGroups }) {
+                 groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }) {
   const [io, setIo] = useState("");
   const [grant, setGrant] = useState(null);
   const [showQR, setShowQR] = useState(false);
@@ -1319,6 +1344,20 @@ function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, me
   const [newG, setNewG] = useState("");
   const [scope, setScope] = useState("");
   const [editing, setEditing] = useState(null);
+  const [personName, setPersonName] = useState('');
+  const [personError, setPersonError] = useState('');
+  function editPerson(person) {
+    setEditing(person.name); setPersonName(person.name); setPersonError('');
+  }
+  useEffect(() => {
+    if (editing && !roster.some(person => person.name === editing)) setEditing(null);
+  }, [roster, editing]);
+  function saveName(event) {
+    event.preventDefault();
+    const result = renamePerson(editing, personName);
+    if (result.error) { setPersonError(result.error); return; }
+    setEditing(result.name); setPersonName(result.name); setPersonError('');
+  }
   const dump = JSON.stringify({ roster, history, customs, groups });
 
   /* sharing one group instead of everyone is the point — smaller code, less clutter */
@@ -1471,25 +1510,39 @@ function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, me
       ${msg && html`<div class="status ok"><strong>${msg}</strong></div>`}
 
       <div class="label">Your people · ${roster.length}, from ${history.length} runs</div>
+      <div class="note">Edit a name, or use ↑ and ↓ to arrange the people tags. The order is shared with your team.</div>
       <div class="list">
-        ${roster.map((p) => html`
-          <div class="listrow static">
-            <button class="rowmain" onClick=${() => groups.length ? setEditing(p.name) : null}>
+        ${roster.map((p, index) => html`
+          <div class="listrow static people-row">
+            <button class="rowmain" aria-label=${'Edit ' + p.name} onClick=${() => editPerson(p)}>
               <strong>${p.name}</strong>
               <em>${p.usuals.join(" / ")}</em>
               ${groups.length > 0 && html`<em class="tags">${(p.groups || []).length ? (p.groups || []).join(" · ") : "no group"}</em>`}
             </button>
-            <button class="link" onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>remove</button>
+            <div class="person-actions">
+              <button aria-label=${'Move ' + p.name + ' up'} disabled=${index === 0} onClick=${() => movePerson(p.name, -1)}>↑</button>
+              <button aria-label=${'Move ' + p.name + ' down'} disabled=${index === roster.length - 1} onClick=${() => movePerson(p.name, 1)}>↓</button>
+              <button aria-label=${'Edit name for ' + p.name} onClick=${() => editPerson(p)}>Edit</button>
+              <button class="remove-person" aria-label=${'Remove ' + p.name} onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>×</button>
+            </div>
           </div>`)}
       </div>
 
       ${editing && html`
-        <${Shell} title=${"Groups for " + editing} onCancel=${() => setEditing(null)}>
+        <${Shell} title=${"Edit " + editing} onCancel=${() => setEditing(null)}>
+          <form onSubmit=${saveName}>
+            <label for="person-name">Name</label>
+            <input id="person-name" value=${personName} maxlength="200" onInput=${event => setPersonName(event.target.value)} />
+            ${personError && html`<p class="person-error" role="alert">${personError}</p>`}
+            <button class="ghost" type="submit" disabled=${!personName.trim() || personName.trim() === editing}>Save name</button>
+          </form>
+          ${groups.length > 0 && html`<div class="label">Groups</div>`}
           <div class="stack">
             ${groups.map((g) => {
               const on = inGroup(roster.find((x) => x.name === editing) || {}, g);
               return html`<button class=${"opt" + (on ? " on" : "")} onClick=${() => {
                 const p = roster.find((x) => x.name === editing);
+                if (!p) return;
                 const gs = (p.groups || []).slice();
                 const i = gs.indexOf(g);
                 if (i > -1) gs.splice(i, 1); else gs.push(g);

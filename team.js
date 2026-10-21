@@ -14,7 +14,7 @@ globalThis.KopiTeamSync = class KopiTeamSync {
     this.message = 'Loading the team list…';
   }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  emit(state) { this.listeners.forEach(fn => fn(state)); }
+  emit(state, previous) { this.listeners.forEach(fn => fn(state, previous)); }
   async request(method = 'GET', body) {
     const response = await this.fetcher('/api/team', {
       method, cache: 'no-store', credentials: 'omit',
@@ -56,6 +56,7 @@ globalThis.KopiTeamSync = class KopiTeamSync {
         const data = await this.request('PUT', { version: this.version, state: JSON.parse(snapshot) });
         this.version = data.version;
         this.saved = snapshot;
+        this.state = JSON.parse(snapshot);
         if (this.pending === snapshot) this.pending = null;
       }
       this.status = 'saved';
@@ -75,12 +76,13 @@ globalThis.KopiTeamSync = class KopiTeamSync {
       const data = await this.request();
       if (this.pending || this.saving || this.version !== expectedVersion) return;
       const changed = data.version !== this.version;
+      const previous = this.state;
       this.version = data.version;
       this.state = data.state;
       this.saved = JSON.stringify(data.state);
       this.status = 'saved';
       this.message = 'Team list saved in the cloud';
-      this.emit(changed ? data.state : undefined);
+      this.emit(changed ? data.state : undefined, previous);
     } catch {
       if (!this.pending && !this.saving) {
         this.status = 'offline';

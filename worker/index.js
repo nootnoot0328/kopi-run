@@ -70,7 +70,7 @@ export default {
     try {
       const path = new URL(request.url).pathname;
       if (path.startsWith('/api/')) return await api(request, env);
-      if (!['/', '/index.html', '/team.js', '/sw.js'].includes(path)) return new Response('Not found', { status: 404 });
+      if (!['/', '/index.html', '/team.js', '/people.js', '/sw.js'].includes(path)) return new Response('Not found', { status: 404 });
       const response = await env.ASSETS.fetch(request);
       const headers = new Headers(response.headers);
       headers.set('Referrer-Policy', 'no-referrer');
