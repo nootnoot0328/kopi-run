@@ -2,6 +2,13 @@
    when a colleague renames someone in the shared roster. */
 globalThis.KopiPeople = {
   identity(person) { return person.id || 'name:' + person.name; },
+  setUsual(person, oldDrink, value) {
+    const drink = value.trim().replace(/\s+/g, ' ');
+    if (!drink || drink.length > 200) throw new Error('Enter a drink within 200 characters.');
+    if (!person.usuals.includes(oldDrink)) throw new Error('This usual drink has changed. Reopen the editor.');
+    const usuals = [...new Set(person.usuals.map(usual => usual === oldDrink ? drink : usual))];
+    return { ...person, usuals, usualsLocked: true };
+  },
   rename({ roster, history, picked }, oldName, value) {
     const name = value.trim().replace(/\s+/g, ' ');
     if (!name) throw new Error('Enter a name.');

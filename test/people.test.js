@@ -8,6 +8,19 @@ const initial = () => ({
   picked: { Alice: 'Kopi O', Bob: 'Teh' },
 });
 
+test('editing a usual replaces its slot, keeps person data, and marks it as manual', () => {
+  const person = { id: 'person-1', name: 'Alice', usuals: ['Kopi O', 'Teh'], groups: ['Office'] };
+  const edited = KopiPeople.setUsual(person, 'Kopi O', '  Teh   O Kosong Peng ');
+  assert.deepEqual(edited.usuals, ['Teh O Kosong Peng', 'Teh']);
+  assert.equal(edited.usualsLocked, true);
+  assert.equal(edited.id, person.id);
+  assert.equal(edited.groups, person.groups);
+  assert.deepEqual(person.usuals, ['Kopi O', 'Teh']);
+  assert.deepEqual(KopiPeople.setUsual(person, 'Kopi O', 'Teh').usuals, ['Teh']);
+  for (const drink of ['', ' ', 'x'.repeat(201)]) assert.throws(() => KopiPeople.setUsual(person, 'Kopi O', drink));
+  assert.throws(() => KopiPeople.setUsual(person, 'Milo', 'Teh'));
+});
+
 test('renaming preserves preferences, groups, history and current selections', () => {
   const before = initial();
   const next = KopiPeople.rename(before, 'Alice', '  Alicia   Tan  ');

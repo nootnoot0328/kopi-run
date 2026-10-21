@@ -11,9 +11,15 @@ refreshes other colleagues' changes every 15 seconds and when the window regains
 Use **Setup → Your people → Edit** to rename a person. Their usual drinks, groups,
 completed-run history, and current selections are retained. The **↑ / ↓** buttons
 change the shared tag order on Who's in and By drink. Names must be nonempty and
-unique (ignoring case). The main roster also has **Edit names & arrange people**.
+unique (ignoring case). Name and ordering controls are kept in Setup.
 The saved notice appears as a small line in Setup; other screens show only
 saving progress or actionable connection/conflict errors.
+
+To edit a usual, select the person on Who's in, tap the pencil, then tap their
+usual drink. The editor starts with that drink's existing options; choose
+**Save usual drink** to update the shared usual and today's order. Manually
+edited usuals are retained when runs finish. **Build something different**
+continues to change only the current order.
 
 Anyone holding the invitation can read and edit the shared data. The random
 invitation token stays in the URL fragment, is sent to the API as a bearer token,

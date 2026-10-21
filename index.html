@@ -662,6 +662,8 @@ function parseDrink(line) {
   return {
     base,
     milk: /\bO\b/.test(rest) ? "O" : /\bC\b/.test(rest) ? "C" : "",
+    sugar: ['Siu Dai', 'Kosong', 'Gah Dai'].find(value => rest.toLowerCase().includes(value.toLowerCase())) || '',
+    strength: ['Gau', 'Po', 'Di Lo'].find(value => new RegExp('\\b' + value + '\\b', 'i').test(rest)) || '',
     peng: /\bPeng\b/i.test(rest),
   };
 }
@@ -707,6 +709,7 @@ const recite = (d) => [d.base, d.milk, d.sugar, d.strength, d.peng && "Peng"].fi
 function relearn(roster, history) {
   const recent = history.slice(-30);
   return roster.map((p) => {
+    if (p.usualsLocked) return p;
     const counts = {};
     recent.forEach((run) => run.orders.forEach((o) => {
       if (o.who === p.name) counts[o.drink] = (counts[o.drink] || 0) + 1;
@@ -783,6 +786,10 @@ function App() {
     });
   }
   function setDrink(name, drink) { setPicked((p) => ({ ...p, [name]: drink })); setSheet(null); }
+  function setUsualDrink(name, oldDrink, drink) {
+    setRoster(roster => roster.map(person => person.name === name ? KopiPeople.setUsual(person, oldDrink, drink) : person));
+    setDrink(name, drink);
+  }
   function addPerson(name, drink) {
     name = roster.find(p => p.name.toLowerCase() === name.toLowerCase())?.name || name;
     setRoster((r) => r.some((x) => x.name.toLowerCase() === name.toLowerCase()) ? r : [...r, { id: crypto.randomUUID(), name, usuals: [drink] }]);
@@ -889,6 +896,7 @@ function App() {
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
           customs=${customs} noteCustom=${noteCustom}
+          onSaveUsual=${(oldDrink, drink) => setUsualDrink(sheet.name, oldDrink, drink)}
           onPick=${(d) => setDrink(sheet.name, d)} onCancel=${() => setSheet(null)} />`}
       ${sheet && sheet.mode === "new" && html`
         <${NewSheet} customs=${customs} noteCustom=${noteCustom}
@@ -1010,8 +1018,6 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           </div>`}
       </div>
 
-      <button class="ghost" onClick=${() => setScreen('set')}>Edit names & arrange people</button>
-
       ${extras.length > 0 && html`
         <div class="panel">
           <div class="label">Spare drinks, no owner</div>
@@ -1039,17 +1045,23 @@ function Shell({ title, children, onCancel }) {
     </div>`;
 }
 
-function ChangeSheet({ person, current, onPick, onCancel, customs, noteCustom }) {
+function ChangeSheet({ person, current, onPick, onSaveUsual, onCancel, customs, noteCustom }) {
   const [building, setBuilding] = useState(false);
+  const [editingUsual, setEditingUsual] = useState(null);
   if (!person) return null;
+  if (editingUsual !== null) return html`<${Builder} title=${person.name + ' — edit usual drink'}
+    initialLine=${editingUsual} buttonText="Save usual drink"
+    helpText="Saved for future runs and used for this order."
+    customs=${customs} noteCustom=${noteCustom} onCancel=${() => setEditingUsual(null)}
+    onAdd=${drink => onSaveUsual(editingUsual, drink)} />`;
   if (building) return html`<${Builder} title=${person.name + " — today"} customs=${customs}
     noteCustom=${noteCustom} onCancel=${() => setBuilding(false)} onAdd=${onPick} />`;
   return html`
     <${Shell} title=${person.name + " wants something else"} onCancel=${onCancel}>
-      <div class="label">Their usual drinks</div>
+      <div class="label">Their usual drinks · tap to edit</div>
       <div class="stack">
         ${person.usuals.map((u) => html`
-          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => onPick(u)}>${u}</button>`)}
+          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => setEditingUsual(u)}>${u}</button>`)}
       </div>
       <button class="ghost" onClick=${() => setBuilding(true)}>Build something different</button>
     <//>`;
@@ -1114,9 +1126,11 @@ function Composer({ customs, d, setD, free, setFree, onQuick }) {
       onInput=${(e) => setFree(e.target.value)} />`;
 }
 
-function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
-  const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
-  const [free, setFree] = useState("");
+function Builder({ title, onAdd, onCancel, customs, noteCustom, initialLine = '', buttonText = 'Use this', helpText }) {
+  const recipe = parseDrink(initialLine);
+  const isRecipe = recipe && recite(recipe) === initialLine;
+  const [d, setD] = useState(() => isRecipe ? recipe : { base: null, milk: "", sugar: "", strength: "", peng: false });
+  const [free, setFree] = useState(() => isRecipe ? '' : initialLine);
   const typed = tidy(free);
   const line = typed || (d.base ? recite(d) : "");
   const use = (text, isFree) => { if (isFree) noteCustom(text); onAdd(text); };
@@ -1125,12 +1139,12 @@ function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
     <${Shell} title=${title} onCancel=${onCancel}>
       <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
         onQuick=${(c) => use(c, true)} />
-      <div class="note">Anything the buttons can't say. It becomes a chip up top next time.</div>
+      <div class="note">${helpText || "Anything the buttons can't say. It becomes a chip up top next time."}</div>
       <div class="preview">
         <${DrinkIcon} line=${line} size=${38} />
         <div><span>The stall will hear</span><strong>${line || "—"}</strong></div>
       </div>
-      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>Use this</button>
+      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>${buttonText}</button>
     <//>`;
 }
 
@@ -1336,7 +1350,7 @@ function HandBack({ orders, onClose }) {
         })}
       </div>
       <button class="primary" onClick=${onClose}>Finish run and learn from it</button>
-      <div class="note">Closing the run updates everyone's usual from what they actually took.</div>
+      <div class="note">Closing the run learns from what people took. Manually edited usuals stay as saved.</div>
     </main>`;
 }
 
