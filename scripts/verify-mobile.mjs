@@ -145,21 +145,22 @@ test('free text switches to base buttons, soft drinks preview and save through a
   await page.locator('.modrow button').filter({ hasText: 'Kosong' }).click();
   assert.equal(await page.locator('.preview strong').innerText(), 'Teh Kosong');
   await input().fill('Other text'); assert.equal(await page.locator('.preview strong').innerText(), 'Other text');
-  for (const drink of ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Fanta Orange']) {
+  for (const drink of ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Ice Lemon Tea']) {
     assert.equal(await page.getByRole('button', { name: drink, exact: true }).count(), 1);
+    assert.equal(await page.locator('.soft-drinks button').filter({ hasText: drink }).locator('svg[data-drink]').first().count(), 1);
     await page.locator('.soft-drinks').getByRole('button', { name: drink, exact: true }).click();
     assert.equal(await page.locator('.preview strong').innerText(), drink);
     assert.equal(await page.locator('.bases .on').count(), 0);
   }
   await save(page, () => page.getByRole('button', { name: 'Save usual drink', exact: true }).click());
-  assert.equal((await read()).state.roster[0].usuals[0], 'Fanta Orange');
+  assert.equal((await read()).state.roster[0].usuals[0], 'Ice Lemon Tea');
   await card(page, 'Alice').locator('.edit').click();
   await page.getByRole('button', { name: 'Drink something different today', exact: true }).click();
   await input().fill('Typed'); await page.locator('.bases button').filter({ hasText: /^Milo$/ }).click();
   assert.equal(await input().inputValue(), '');
   await page.locator('.soft-drinks').getByRole('button', { name: 'Coke', exact: true }).click();
   await save(page, () => page.getByRole('button', { name: 'Use this', exact: true }).click());
-  assert.equal((await read()).state.roster[0].usuals[0], 'Fanta Orange');
+  assert.equal((await read()).state.roster[0].usuals[0], 'Ice Lemon Tea');
   assert.equal(await card(page, 'Alice').locator('.drink').innerText(), 'Coke');
   await page.getByRole('button', { name: '+ Someone else', exact: false }).click();
   await page.getByPlaceholder('Name', { exact: true }).fill('New person');
@@ -176,6 +177,67 @@ test('free text switches to base buttons, soft drinks preview and save through a
   const variants = await page.locator('.famvariant').allTextContents();
   assert.match((await page.locator('.dark').innerText()), /Sprite/);
   await page.screenshot({ path: 'artifacts/soft-drinks-counter-mobile.png' });
+});
+
+test('drink logos, retired quick option, order collage, skip, and completion exactly once', { timeout: 60000 }, async t => {
+  const state = fixture();
+  state.roster.push({ id: 'cara', name: 'Cara', usuals: ['Ice Lemon Tea'] });
+  state.customs.push('Fanta Orange');
+  await seed(state); const { page } = await context(t); await open(page);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.getByRole('button', { name: 'By drink', exact: true }).click();
+  assert.equal(await page.locator('.soft-drinks .drink-logo').count(), 5);
+  assert.equal(await page.getByRole('button', { name: 'Fanta Orange', exact: true }).count(), 0);
+  await page.getByPlaceholder('Calamansi ice lemon tea, 100 Plus…').fill('Iced Lemon Tea');
+  assert.equal(await page.locator('.preview strong').innerText(), 'Ice Lemon Tea');
+  assert.equal(await page.locator('.preview svg[data-drink="Ice Lemon Tea"]').count(), 1);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: 'artifacts/drink-logos-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: "Who's in", exact: true }).click();
+  for (const name of ['Alice', 'Bob', 'Cara']) await card(page, name).locator('.cardmain').click();
+  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('kr.draft.v1.team')).picked);
+  const previous = await read();
+  await page.getByRole('button', { name: 'Done — show at counter', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Writing the order…', exact: true }).waitFor();
+  assert.equal(await page.locator('.motion-name').count(), 3);
+  assert.equal(await page.locator('.app-content').evaluate(element => element.inert), true);
+  await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.motion-receipt')).opacity) > .95);
+  await page.screenshot({ path: 'artifacts/order-collage-mobile.png' });
+  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
+  assert.equal(await page.locator('.run-motion').count(), 0);
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kr.draft.v1.team')).picked), draft);
+  assert.equal((await read()).version, previous.version);
+  await page.getByRole('button', { name: "Who's in", exact: true }).click();
+  await page.getByRole('button', { name: 'Done — show at counter', exact: true }).click();
+  await page.getByRole('button', { name: 'Skip animation', exact: true }).click();
+  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Hand back', exact: true }).click();
+  const finish = await page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).elementHandle();
+  await save(page, () => page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).click());
+  await page.getByRole('dialog', { name: 'Gam xia lao ban hehe!', exact: true }).waitFor();
+  await finish.evaluate(element => { element.click(); element.click(); });
+  await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.thanks-card')).opacity) > .95);
+  await page.screenshot({ path: 'artifacts/lao-ban-celebration-mobile.png' });
+  await page.getByRole('button', { name: 'Back to the gang', exact: true }).click();
+  const saved = await read();
+  assert.equal(saved.state.history.length, 1);
+  assert.equal(saved.state.history[0].orders.length, 3);
+  assert.equal(await page.locator('.card.on').count(), 0);
+  assert.equal(await page.locator('.run-motion').count(), 0);
+  assert.equal(await page.locator('.app-content').evaluate(element => element.inert), false);
+});
+
+test('reduced motion skips the collage and provides a static thank-you without duplicate history', { timeout: 60000 }, async t => {
+  await seed(); const { page } = await context(t); await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page);
+  await card(page, 'Alice').locator('.cardmain').click();
+  await page.getByRole('button', { name: 'Done — show at counter', exact: true }).click();
+  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
+  assert.equal(await page.locator('.run-motion').count(), 0);
+  await page.getByRole('button', { name: 'Hand back', exact: true }).click();
+  await save(page, () => page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).click());
+  await page.locator('.thank-toast').filter({ hasText: 'Gam xia lao ban hehe!' }).waitFor();
+  assert.equal(await page.locator('.run-motion').count(), 0);
+  assert.equal((await read()).state.history.length, 1);
 });
 
 test('buyer editor sync, preview, plain text, cancel, reload, and concurrent form protection', { timeout: 60000 }, async t => {

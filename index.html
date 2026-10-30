@@ -166,6 +166,39 @@ html.counter-screen .syncbar time{color:rgba(255,255,255,.65)}
 .hero-editor input{margin-top:5px;width:100%}
 .hero-editor .buyer-hero{margin:12px 0}
 .soft-drinks{margin-top:12px}
+.run-motion{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:rgba(7,63,44,.94);overflow:hidden;color:var(--ink)}
+.run-motion .motion-skip{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);border:1px solid rgba(255,255,255,.5);border-radius:22px;background:transparent;color:#fff;padding:10px 18px;font-weight:700}
+.motion-name{position:fixed;left:var(--left);top:var(--top);width:150px;padding:11px;background:var(--paper);border:2px solid var(--amber);border-radius:12px;color:var(--ink);box-shadow:0 5px 20px #0002;pointer-events:none;animation:cards-gather .44s cubic-bezier(.5,0,.2,1) both;animation-delay:var(--delay)}
+.motion-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.motion-name span{display:block;font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
+.motion-receipt{position:relative;width:min(300px,85vw);padding:25px 22px;background:var(--paper);border-radius:4px;box-shadow:0 20px 60px #0004;animation:receipt-arrive .3s .16s both,receipt-depart .18s .68s forwards}
+.motion-receipt:after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:9px;background:linear-gradient(135deg,var(--paper) 5px,transparent 0) 0 0/12px 12px,linear-gradient(225deg,var(--paper) 5px,transparent 0) 0 0/12px 12px}
+.motion-eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;font-weight:800;color:var(--jade)}
+.motion-receipt h2{margin:8px 0 4px;font-size:25px}
+.motion-receipt .motion-meta{font-size:12px;color:var(--mute);padding-bottom:14px;margin-bottom:8px;border-bottom:2px dashed var(--line)}
+.motion-line{display:flex;gap:9px;align-items:baseline;font-size:14px;padding:5px 0;animation:order-writing .22s ease-out both;animation-delay:var(--write-delay)}
+.motion-line b{color:var(--jade);min-width:15px}
+.motion-line span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.motion-signature{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;font-style:italic;color:var(--jade);animation:order-writing .2s .4s both}
+.motion-pen{position:absolute;right:15px;bottom:18px;font-size:28px;animation:pen-write .3s .2s 2;transform:rotate(-25deg)}
+.thanks-card{position:relative;text-align:center;width:min(330px,88vw);padding:30px 22px 27px;background:var(--paper);border-radius:24px;border:2px solid var(--amber);box-shadow:0 20px 60px #0004;animation:thanks-pop .38s cubic-bezier(.2,.8,.2,1) both}
+.thanks-card h2{font-size:28px;line-height:1.12;margin:13px 0;color:var(--jade-deep)}
+.thanks-card p{font-size:14px;color:var(--mute);margin:7px 0;line-height:1.5}
+.thanks-cups{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px}
+.thanks-cups .ico:first-child{animation:cup-clink-left .65s ease-in-out both}
+.thanks-cups .ico:last-child{animation:cup-clink-right .65s ease-in-out both}
+.motion-confetti{position:absolute;left:50%;top:40%;width:7px;height:12px;border-radius:2px;background:var(--color);pointer-events:none;animation:confetti-pop 1.05s .12s ease-out both;--x:0px;--y:0px}
+.thank-toast{margin:10px 12px;padding:12px 16px;background:var(--jade-deep);border-left:4px solid var(--amber);border-radius:12px;color:#fff;font-weight:800}
+@keyframes cards-gather{0%{opacity:1;transform:translate(0,0) rotate(0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--tilt)) scale(.4)}}
+@keyframes receipt-arrive{from{opacity:0;transform:translateY(18px) scale(.88) rotate(-4deg)}to{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
+@keyframes receipt-depart{to{opacity:0;transform:translateX(70px) rotate(5deg)}}
+@keyframes order-writing{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+@keyframes pen-write{50%{transform:translate(-15px,-3px) rotate(-15deg)}}
+@keyframes thanks-pop{from{opacity:0;transform:scale(.85) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes cup-clink-left{0%,100%{transform:rotate(-10deg)}45%{transform:translateX(7px) rotate(9deg)}}
+@keyframes cup-clink-right{0%,100%{transform:rotate(10deg)}45%{transform:translateX(-7px) rotate(-9deg)}}
+@keyframes confetti-pop{0%{opacity:0;transform:translate(0,0) rotate(0)}10%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(160deg)}}
+@media(prefers-reduced-motion:reduce){.run-motion *{animation:none!important}.motion-name,.motion-confetti{display:none}}
 .people-row{flex-wrap:wrap;gap:8px}
 .people-row .rowmain{min-width:0;overflow-wrap:anywhere}
 .person-actions{display:flex;align-items:center;gap:6px}
@@ -523,7 +556,7 @@ if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist()
 <script>
 /* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
-const { useState, useEffect, useLayoutEffect, useMemo } = preactHooks;
+const { useState, useEffect, useLayoutEffect, useMemo, useRef } = preactHooks;
 const html = htm.bind(h);
 
 /* ---------- storage: localStorage, with an in-memory fallback ---------- */
@@ -577,8 +610,8 @@ const BASES = [
   { id: "Barley", milk: 0, sugar: 1, strength: 0 },
   { id: "Limau", milk: 0, sugar: 1, strength: 0 },
 ];
-const SOFT_DRINKS = ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Fanta Orange'];
-const softKey = value => value.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^cocacola/, 'coke');
+const SOFT_DRINKS = ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Ice Lemon Tea'];
+const softKey = value => value.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^cocacola/, 'coke').replace(/^icedlemontea$/, 'icelemontea');
 const softDrink = value => SOFT_DRINKS.find(drink => softKey(drink) === softKey(value)) || value;
 const GROUPS = [
   { key: "milk", gate: "milk", cards: [["O", "no milk"], ["C", "evaporated"]] },
@@ -692,6 +725,31 @@ function parseDrink(line) {
 
 function DrinkIcon({ line, size }) {
   const S = size || 30;
+  const quick = SOFT_DRINKS.find(drink => softKey(drink) === softKey(line || ''));
+  if (quick === 'Ice Lemon Tea') return html`<svg class="ico drink-logo" data-drink=${quick} width=${S} height=${S} viewBox="0 0 40 40" aria-hidden="true">
+    <path d="m27 3-7 15" stroke="#0E6B52" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M10 12h21l-3 24H13z" fill="#CB801F" stroke="#8C5A06" stroke-width="1.3"/>
+    <path d="M12 13h17l-.8 6H13z" fill="#EFBF61"/>
+    <rect x="15" y="21" width="6" height="6" rx="1" fill="#fff" opacity=".65" transform="rotate(12 18 24)"/>
+    <rect x="23" y="27" width="4" height="4" rx="1" fill="#fff" opacity=".5"/>
+    <circle cx="30" cy="13" r="7" fill="#F6DA54" stroke="#E5B227" stroke-width="1.5"/>
+    <path d="M30 7v12m-6-6h12m-10-4 8 8m-8 0 8-8" stroke="#fff6bf" stroke-width="1"/>
+  </svg>`;
+  if (quick) {
+    const color = { Coke: '#D83433', 'Coke Zero': '#242629', Sprite: '#23875B', '100 Plus': '#EBF2F4' }[quick];
+    return html`<svg class="ico drink-logo" data-drink=${quick} width=${S} height=${S} viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="10" y="5" width="21" height="32" rx="4" fill=${color} stroke="#72878A" stroke-width="1"/>
+      <ellipse cx="20.5" cy="6" rx="10" ry="2.5" fill="#D7DEDF"/>
+      <ellipse cx="21" cy="6" rx="3" ry="1" fill="none" stroke="#829196" stroke-width="1"/>
+      <path d="M13 10v21" stroke="#fff" stroke-width="2" opacity=".2"/>
+      ${quick === 'Coke' && html`<path d="M26 15c-13-7-16 19-1 11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M12 30c6-4 10 4 17-1" fill="none" stroke="#fff" stroke-width="1.5"/>`}
+      ${quick === 'Coke Zero' && html`<text x="20.5" y="23" text-anchor="middle" fill="#fff" font-size="7" font-weight="900">ZERO</text><path d="M13 29h15" stroke="#E74743" stroke-width="2"/>`}
+      ${quick === 'Sprite' && html`<path d="M14 24 26 14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="m23 10 6 2-3 5-5-2z" fill="#F3DD58"/><circle cx="15" cy="29" r="2" fill="#B4DECF"/>`}
+      ${quick === '100 Plus' && html`<path d="M11 13h19v4H11z" fill="#1E91C5"/><path d="M11 17h19v3H11z" fill="#D74952"/><path d="M11 20h19v3H11z" fill="#31956B"/>
+        <text x="20.5" y="31" text-anchor="middle" fill="#15577C" font-size="8" font-weight="900">100+</text>`}
+    </svg>`;
+  }
   const p = parseDrink(line);
   const vb = "0 0 40 40";
   if (!p) {
@@ -757,6 +815,13 @@ function App() {
   const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
   const [group, setGroup] = useState(() => store.get(localKey(K.active), ""));
   const [hero, setHero] = useState(() => KopiSettings.hero(initial('hero', K.hero, KopiSettings.defaults())));
+  const [motion, setMotion] = useState(null), [toast, setToast] = useState('');
+  const motionLock = useRef(false), motionAction = useRef(null);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(''), 2400);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => { if (!team) store.set(K.custom, customs); }, [customs]);
   useEffect(() => { if (!team) store.set(K.groups, groups); }, [groups]);
@@ -896,9 +961,39 @@ function App() {
     setRoster((r) => relearn(r, nh));
     setPicked({}); setExtras([]); setScreen("who");
   }
+  function beginMotion(kind, action) {
+    if (motionLock.current || !orders.length) return;
+    motionLock.current = true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      action();
+      if (kind === 'thanks') setToast('Gam xia lao ban hehe! ☕');
+      queueMicrotask(() => { motionLock.current = false; });
+      return;
+    }
+    const width = window.innerWidth, height = window.innerHeight;
+    const positions = new Map([...document.querySelectorAll('.card.on[data-person]')].map(card => [card.dataset.person, card.getBoundingClientRect()]));
+    const slips = orders.slice(0, 12).map((order, index) => {
+      const rect = positions.get(order.who);
+      const left = Math.max(10, Math.min(width - 160, rect?.left ?? width / 2 - 75));
+      const top = Math.max(100, Math.min(height - 140, rect?.top ?? height * .72));
+      return { ...order, left, top, dx: width / 2 - 75 - left, dy: height / 2 - 40 - top, tilt: (index % 5 - 2) * 5 };
+    });
+    motionAction.current = kind === 'thanks' ? null : action;
+    if (kind === 'thanks') action();
+    setMotion({ kind, slips, orders: orders.map(order => ({ ...order })), lines: lines.map(line => ({ ...line, who: line.who.slice() })) });
+  }
+  function finishMotion() {
+    if (!motionLock.current) return;
+    const action = motionAction.current;
+    motionAction.current = null; motionLock.current = false;
+    setMotion(null); action?.();
+  }
+  function startCounter() { beginMotion('order', () => setScreen('counter')); }
+  function finishRun() { beginMotion('thanks', closeRun); }
 
   return html`
     <div class="app">
+      <div class="app-content" inert=${!!motion}>
       <header>
         <div class="brand">Kopitiam Run</div>
         <nav>
@@ -910,13 +1005,14 @@ function App() {
 
       ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
       ${(screen === 'who' || screen === 'drink') && html`<${BuyerHero} hero=${hero} />`}
-      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
+      ${toast && html`<div class="thank-toast" role="status">${toast}</div>`}
+      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} onStartCounter=${startCounter} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
         onAssign=${(who, line) => setPicked((p) => ({ ...p, [who]: line }))}
         onOneOff=${(line) => setExtras((e) => [...e, line])} />`}
       ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
-      ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
+      ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${finishRun} />`}
       ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
         groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }} />`}
 
@@ -928,7 +1024,53 @@ function App() {
       ${sheet && sheet.mode === "new" && html`
         <${NewSheet} customs=${customs} noteCustom=${noteCustom}
           onAdd=${addPerson} onExtra=${addExtra} onCancel=${() => setSheet(null)} />`}
+      </div>
+      ${motion && html`<${RunMotion} data=${motion} onFinish=${finishMotion} />`}
     </div>`;
+}
+
+function RunMotion({ data, onFinish }) {
+  const skip = useRef(null);
+  const isOrder = data.kind === 'order';
+  useLayoutEffect(() => {
+    const previous = document.activeElement;
+    skip.current?.focus({ preventScroll: true });
+    const timer = setTimeout(onFinish, isOrder ? 900 : 1700);
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reduce = () => { if (query.matches) onFinish(); };
+    query.addEventListener('change', reduce);
+    return () => {
+      clearTimeout(timer); query.removeEventListener('change', reduce);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      else document.querySelector('.tab.on')?.focus({ preventScroll: true });
+    };
+  }, []);
+  return html`<div class=${'run-motion ' + (isOrder ? 'order-motion' : 'thanks-motion')} role="dialog" aria-modal="true" aria-labelledby="motion-title"
+    onKeyDown=${event => {
+      if (event.key === 'Escape') onFinish();
+      if (event.key === 'Tab') { event.preventDefault(); skip.current?.focus(); }
+    }}>
+    ${isOrder ? html`
+      ${data.slips.map((slip, index) => html`<div class="motion-name" aria-hidden="true" style=${{
+        '--left': slip.left + 'px', '--top': slip.top + 'px', '--dx': slip.dx + 'px', '--dy': slip.dy + 'px', '--tilt': slip.tilt + 'deg', '--delay': index * 9 + 'ms',
+      }}><strong>${slip.who || 'Spare'}</strong><span>${slip.drink}</span></div>`)}
+      <section class="motion-receipt"><div class="motion-eyebrow">Kopitiam Run / kopi notes</div>
+        <h2 id="motion-title">Writing the order…</h2>
+        <div class="motion-meta">${data.orders.length} drinks · ${data.lines.length} lines</div>
+        ${data.lines.slice(0, 5).map((line, index) => html`<div class="motion-line" style=${{ '--write-delay': 230 + index * 45 + 'ms' }}><b>${line.who.length}×</b><span>${line.line}</span></div>`)}
+        ${data.lines.length > 5 && html`<div class="motion-meta">+ ${data.lines.length - 5} more lines</div>`}
+        <div class="motion-signature">One happy team. One tidy order.</div><span class="motion-pen" aria-hidden="true">✎</span>
+      </section>` : html`
+      ${Array.from({ length: 14 }, (_, index) => html`<i class="motion-confetti" aria-hidden="true" style=${{
+        '--x': Math.cos(index * Math.PI / 7) * 165 + 'px', '--y': Math.sin(index * Math.PI / 7) * 210 + 75 + 'px', '--color': ['#E09A2B', '#B8DFCE', '#F7F5EF'][index % 3],
+      }} />`)}
+      <section class="thanks-card"><div class="motion-eyebrow">Run complete</div>
+        <div class="thanks-cups" aria-hidden="true"><${DrinkIcon} line=${data.orders[0]?.drink || 'Kopi'} size=${66} /><${DrinkIcon} line="Kopi" size=${66} /></div>
+        <h2 id="motion-title">Gam xia lao ban hehe!</h2>
+        <p>${data.orders.length} drinks, one happy team.</p><p>Cheers to the boss ☕</p>
+      </section>`}
+    <button ref=${skip} class="motion-skip" onClick=${onFinish}>${isOrder ? 'Skip animation' : 'Back to the gang'}</button>
+  </div>`;
 }
 
 function downloadTeamEdits() {
@@ -1028,7 +1170,7 @@ function InstallBanner() {
 }
 
 /* ---------- roster screen ---------- */
-function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }) {
+function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup, onStartCounter }) {
   const shown = roster.filter((p) => inGroup(p, group));
   /* someone can be picked and then filtered out of view — say so, don't hide it */
   const offscreen = Object.keys(picked).filter((n) => {
@@ -1078,7 +1220,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           const on = !!d;
           const changed = on && p.usuals.indexOf(d) === -1;
           return html`
-            <div class=${"card" + (on ? " on" : "") + (changed ? " changed" : "")}>
+            <div data-person=${p.name} class=${"card" + (on ? " on" : "") + (changed ? " changed" : "")}>
               <button class="cardmain" onClick=${() => toggle(p.name)}>
                 <div class="name">${p.name}</div>
                 <div class="drinkrow">
@@ -1110,7 +1252,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
             </div>`)}
         </div>`}
 
-      <button class="primary" disabled=${!orders.length} onClick=${() => setScreen("counter")}>
+      <button class="primary" disabled=${!orders.length} onClick=${onStartCounter}>
         Done — show at counter
       </button>
     </main>`;
@@ -1168,7 +1310,7 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
 function Composer({ customs, d, setD, free, setFree, onQuick }) {
   const b = d.base ? baseOf(d.base) : null;
   const typed = tidy(free);
-  const menuCustoms = (customs || []).filter(c => !SOFT_DRINKS.some(drink => softKey(drink) === softKey(c)));
+  const menuCustoms = (customs || []).filter(c => softKey(c) !== 'fantaorange' && !SOFT_DRINKS.some(drink => softKey(drink) === softKey(c)));
   return html`
     ${menuCustoms.length > 0 && html`
       <div class="label">Off the menu</div>
@@ -1209,7 +1351,7 @@ function Composer({ customs, d, setD, free, setFree, onQuick }) {
       onInput=${(e) => setFree(e.target.value)} />
     <section class="soft-drinks" aria-label="Soft drinks"><div class="label">Soft drinks</div>
       <div class="chips">${SOFT_DRINKS.map(drink => html`<button class=${'chip' + (softDrink(typed) === drink ? ' on' : '')}
-        onClick=${() => onQuick(drink)}>${drink}</button>`)}</div>
+        onClick=${() => onQuick(drink)}><${DrinkIcon} line=${drink} size=${26} />${drink}</button>`)}</div>
     </section>`;
 }
 

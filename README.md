@@ -38,8 +38,20 @@ that it was a former usual.
 
 Free text stays editable, and tapping any drink base clears it and activates
 that base's modifiers. The **Soft drinks** section offers Coke, Coke Zero,
-Sprite, 100 Plus, and Fanta Orange. Quick choices update the preview before
+Sprite, 100 Plus, and Ice Lemon Tea. Each has a small SVG drink mark (coloured cans
+or lemon-and-ice tea glass) on quick choices, previews, people cards, and orders.
+Fanta Orange is removed from quick choices, including legacy off-menu chips;
+existing saved preferences/history are retained. Quick choices update the preview before
 saving/assigning; equivalent off-menu chips are hidden to avoid duplicates.
+
+**Done — show at counter** briefly gathers the selected name cards into a
+handwritten-style order receipt before opening Counter (about 0.9 seconds).
+**Finish run and learn from it** records the run once, then celebrates with
+clinking cups, confetti, and **Gam xia lao ban hehe!** (about 1.7 seconds).
+Both effects can be skipped, trap keyboard focus while open, and keep background
+controls inert. Reduced-motion preferences skip the collage and use a static
+thank-you notice. Animations never change which people or drinks were selected;
+finishing still uses the normal shared-history save and error handling.
 
 The jade-and-amber **Who's buying today?** hero uses the Singapore weekday,
 updates at midnight and on foreground return, and does not change orders.
@@ -146,7 +158,8 @@ after `npx playwright install chromium` to use Playwright's browser instead.
 The checks cover two-device selection updates, saved/legacy drafts, multiple
 usuals and one-offs, manual/automatic/foreground sync, failed and concurrent
 requests, all drink composers, buyer settings and conflicts, plain-text rendering,
-Singapore midnight/weekends, old data, and mobile overflow. Screenshots go to
+Singapore midnight/weekends, old data, mobile overflow, drink marks, both motion
+transitions, skipping, reduced-motion mode, and duplicate-finish protection. Screenshots go to
 ignored `artifacts/`.
 
 Subsequent deployments: `npm ci`, `npm test`, `npm run deploy`. Secrets and D1
