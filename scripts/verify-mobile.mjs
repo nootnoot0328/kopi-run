@@ -252,9 +252,33 @@ test('reduced motion skips the collage and provides a static thank-you without d
   assert.equal((await read()).state.history.length, 1);
 });
 
-test('speech reads aggregate quantities with local wording, stops, retries, and cancels stale orders', { timeout: 60000 }, async t => {
+test('AI voice reads the order clip, replays it without downloading again, and never uses the phone voice', { timeout: 60000 }, async t => {
+  const state = fixture(); state.roster[1].usuals = ['Kopi O']; await seed(state);
+  const { ctx, page } = await context(t), requests = [];
+  await ctx.route('**/api/speak', route => { requests.push(route.request().postDataJSON()); route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'fake-mp3' }); });
+  await ctx.addInitScript(() => {
+    const state = { clips: [], spoken: 0 }; window.__voice = state;
+    window.Audio = class { constructor() { state.clips.push(this); } play() { if (this.src?.startsWith('blob:')) queueMicrotask(() => this.onplaying?.()); return Promise.resolve(); } pause() {} };
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { getVoices: () => [], speak: () => { state.spoken++; }, cancel() {} } });
+  });
+  await open(page); await card(page, 'Alice').locator('.cardmain').click(); await card(page, 'Bob').locator('.cardmain').click();
+  await page.getByRole('button', { name: 'Counter', exact: true }).click();
+  assert.equal(requests.length, 0);
+  await page.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await page.getByText('Reading the full order…', { exact: true }).waitFor();
+  assert.deepEqual(requests, [{ text: "Boss, order ah. 2 Kopi O. That's all, gam sia boss!" }]);
+  await page.evaluate(() => __voice.clips.at(-1).onended());
+  await page.getByText('Order read out. Can repeat, no problem.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await page.getByRole('button', { name: '■ Stop reading', exact: true }).click();
+  assert.equal(requests.length, 1);
+  assert.equal(await page.evaluate(() => __voice.spoken), 0);
+});
+
+test('phone voice fallback reads aggregate quantities with local wording, stops, retries, and cancels stale orders', { timeout: 60000 }, async t => {
   const state = fixture(); state.roster[1].usuals = ['Kopi O']; await seed(state);
   const { ctx, page: a } = await context(t), { page: b } = await context(t);
+  await ctx.route('**/api/speak', route => route.abort());
   await ctx.addInitScript(() => {
     const state = { spoken: [], current: null, cancels: 0 }; window.__speech = state;
     const synth = {
@@ -274,21 +298,25 @@ test('speech reads aggregate quantities with local wording, stops, retries, and 
   assert.equal(await a.getByRole('button', { name: 'Hand back', exact: true }).count(), 0);
   assert.equal(await a.evaluate(() => __speech.spoken.length), 0);
   await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.waitForFunction(() => __speech.spoken.length === 1);
   await a.getByRole('button', { name: '■ Stop reading', exact: true }).waitFor();
   const utterance = await a.evaluate(() => __speech.spoken[0]);
   assert.equal(utterance.text, "Boss, order ah. 2 Kopi O. That's all, gam sia boss!");
   assert.equal(utterance.lang, 'en-SG'); assert.equal(utterance.voice, 'Singapore English');
   await a.getByRole('button', { name: '■ Stop reading', exact: true }).click();
   await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.waitForFunction(() => __speech.spoken.length === 2);
   await a.evaluate(() => __speech.current.onerror({ error: 'synthesis-failed' }));
   await a.getByRole('alert').filter({ hasText: 'Could not play speech' }).waitFor();
   await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.waitForFunction(() => __speech.spoken.length === 3);
   await a.getByRole('button', { name: '■ Stop reading', exact: true }).waitFor();
   await editUsual(b, 'Alice', 'Kopi O', 'Coke'); await sync(a);
   await a.getByRole('button', { name: '🎤 Speak order', exact: true }).waitFor();
   await a.getByText('Order changed. Tap Speak order for the latest list.', { exact: true }).waitFor();
   assert.equal(await a.evaluate(() => __speech.spoken.length), 3);
   await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.waitForFunction(() => __speech.spoken.length === 4);
   assert.match(await a.evaluate(() => __speech.spoken.at(-1).text), /1 Coke/);
   await a.screenshot({ path: 'artifacts/spoken-counter-mobile.png' });
   const cancels = await a.evaluate(() => __speech.cancels);
@@ -298,7 +326,7 @@ test('speech reads aggregate quantities with local wording, stops, retries, and 
 
 test('unavailable speech leaves visual counter usable with a clear explanation', { timeout: 60000 }, async t => {
   await seed(); const { ctx, page } = await context(t);
-  await ctx.addInitScript(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: null }));
+  await ctx.addInitScript(() => { Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: null }); window.Audio = undefined; });
   await open(page); await card(page, 'Alice').locator('.cardmain').click();
   await page.getByRole('button', { name: 'Counter', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: '🎤 Speak order', exact: true }).isDisabled(), true);

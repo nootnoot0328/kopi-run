@@ -1462,7 +1462,7 @@ function families(lines) {
 
 function SpeakOrder({ lines }) {
   const reader = useRef(null), previous = useRef(lines);
-  if (!reader.current) reader.current = new KopiSpeech.Reader();
+  if (!reader.current) reader.current = new KopiSpeech.Reader(globalThis, team && ((text, signal) => team.voice(text, signal)));
   const [, update] = useState(0);
   useEffect(() => {
     const current = reader.current;

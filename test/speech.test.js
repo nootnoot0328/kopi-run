@@ -46,3 +46,38 @@ test('unavailable speech and playback failures remain retryable without reportin
   assert.equal(reader.status, 'error'); assert.match(reader.message, /retry/); assert.equal(reader.active, false);
   reader.speak(lines); env.spoken[1].onstart(); env.spoken[1].onend(); assert.equal(reader.status, 'idle');
 });
+
+function aiEnvironment() {
+  const env = environment(), clips = [];
+  env.clips = clips; env.URL = { createObjectURL: blob => 'blob:' + blob, revokeObjectURL: () => {} };
+  env.Audio = class { constructor() { this.paused = false; clips.push(this); } play() { this.paused = false; return Promise.resolve(); } pause() { this.paused = true; } };
+  return env;
+}
+const settle = () => new Promise(resolve => setTimeout(resolve));
+
+test('AI voice plays the order clip, replays it without another download, and ignores stopped clips', async t => {
+  const env = aiEnvironment(), requests = [];
+  const reader = new KopiSpeech.Reader(env, async text => { requests.push(text); return 'clip-' + requests.length; });
+  t.after(() => reader.dispose());
+  assert.equal(reader.speak(lines), true); assert.equal(reader.status, 'starting');
+  await settle();
+  assert.deepEqual(requests, [KopiSpeech.text(lines)]); assert.equal(env.clips[0].src, 'blob:clip-1');
+  env.clips[0].onplaying(); assert.equal(reader.status, 'speaking');
+  env.clips[0].onended(); assert.equal(reader.status, 'idle'); assert.match(reader.message, /Can repeat/);
+  reader.speak(lines); await settle();
+  assert.equal(requests.length, 1); assert.equal(env.clips[1].src, 'blob:clip-1');
+  reader.stop(); assert.equal(env.clips[1].paused, true); assert.equal(env.clips[1].onended, null);
+  assert.equal(env.spoken.length, 0);
+});
+
+test('AI voice failures fall back to the phone voice, and stale downloads never play', async t => {
+  const env = aiEnvironment();
+  let release;
+  const reader = new KopiSpeech.Reader(env, () => new Promise((resolve, reject) => { release = { resolve, reject }; }));
+  t.after(() => reader.dispose());
+  reader.speak(lines); release.reject(new Error('down')); await settle();
+  assert.equal(env.spoken.length, 1); assert.equal(env.spoken[0].text, KopiSpeech.text(lines));
+  env.spoken[0].onstart(); assert.equal(reader.status, 'speaking');
+  reader.speak(lines); const stale = release; reader.stop(); stale.resolve('late'); await settle();
+  assert.notEqual(env.clips.at(-1).src, 'blob:late'); assert.equal(reader.status, 'idle');
+});

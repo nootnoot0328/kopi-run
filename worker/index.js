@@ -24,24 +24,11 @@ export function validState(s) {
       r.orders.length <= 1000 && r.orders.every(o => o && text(o.who) && text(o.drink)));
 }
 
-async function api(request, env) {
-  // Fail closed: a missing deployment secret never makes the roster public.
-  if (!/^[a-f0-9]{64}$/.test(env.TEAM_TOKEN_HASH || '')) return json({ error: 'Team access is not configured.' }, 503);
-  const token = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43,128})$/)?.[1];
-  if (!token || await tokenHash(token) !== env.TEAM_TOKEN_HASH) return json({ error: 'Open the team invitation link to continue.' }, 401);
-  if (!env.DB) return json({ error: 'Team storage is not configured.' }, 503);
-  if (new URL(request.url).pathname !== '/api/team') return json({ error: 'Not found.' }, 404);
-  if (request.method === 'GET') {
-    const row = await env.DB.prepare('SELECT version, data FROM team_state WHERE id = 1').first();
-    if (!row) return json({ error: 'Run the database migration first.' }, 503);
-    const state = JSON.parse(row.data);
-    return json({ version: row.version, state: { ...state, hero: KopiSettings.hero(state.hero) } });
-  }
-  if (request.method !== 'PUT') return json({ error: 'Method not allowed.' }, 405);
+// Same-origin JSON only; streaming bodies are bounded because Content-Length is not trusted.
+async function body(request, limit, tooLarge) {
   const origin = request.headers.get('Origin');
   if (origin && origin !== new URL(request.url).origin) return json({ error: 'Origin not allowed.' }, 403);
   if (!(request.headers.get('Content-Type') || '').startsWith('application/json')) return json({ error: 'JSON required.' }, 415);
-  // Bound streaming bodies too; Content-Length is not trusted.
   const reader = request.body?.getReader();
   if (!reader) return json({ error: 'Missing body.' }, 400);
   let size = 0;
@@ -50,7 +37,7 @@ async function api(request, env) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 256 * 1024) { await reader.cancel(); return json({ error: 'Team data is too large.' }, 413); }
+    if (size > limit) { await reader.cancel(); return json({ error: tooLarge }, 413); }
     chunks.push(value);
   }
   const bytes = new Uint8Array(size);
@@ -59,6 +46,47 @@ async function api(request, env) {
   let input;
   try { input = JSON.parse(new TextDecoder().decode(bytes)); }
   catch { return json({ error: 'Invalid JSON.' }, 400); }
+  return input;
+}
+
+// Aura-2 voices offered for the order readout; the first is the default.
+export const VOICES = ['thalia', 'helena', 'apollo', 'pandora', 'orion'];
+// Only order readouts are voiced, so the endpoint cannot be used as a general speech service.
+export const spokenOrder = text => typeof text === 'string' && text.length <= 1500 &&
+  /^Boss, order ah\. .+ That's all, gam sia boss!$/.test(text);
+
+async function speak(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+  if (!env.AI) return json({ error: 'Voice is not configured.' }, 503);
+  const input = await body(request, 4096, 'Order is too long to read.');
+  if (input instanceof Response) return input;
+  const speaker = input?.voice ?? VOICES[0];
+  if (!spokenOrder(input?.text) || !VOICES.includes(speaker)) return json({ error: 'Invalid order readout.' }, 400);
+  const audio = await env.AI.run('@cf/deepgram/aura-2-en', { text: input.text, speaker, encoding: 'mp3' }, { returnRawResponse: true }).catch(() => null);
+  if (!audio?.ok) return json({ error: 'Voice is unavailable. Using the phone voice instead.' }, 502);
+  return new Response(audio.body, { headers: {
+    'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+  } });
+}
+
+async function api(request, env) {
+  // Fail closed: a missing deployment secret never makes the roster public.
+  if (!/^[a-f0-9]{64}$/.test(env.TEAM_TOKEN_HASH || '')) return json({ error: 'Team access is not configured.' }, 503);
+  const token = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43,128})$/)?.[1];
+  if (!token || await tokenHash(token) !== env.TEAM_TOKEN_HASH) return json({ error: 'Open the team invitation link to continue.' }, 401);
+  if (!env.DB) return json({ error: 'Team storage is not configured.' }, 503);
+  const path = new URL(request.url).pathname;
+  if (path === '/api/speak') return speak(request, env);
+  if (path !== '/api/team') return json({ error: 'Not found.' }, 404);
+  if (request.method === 'GET') {
+    const row = await env.DB.prepare('SELECT version, data FROM team_state WHERE id = 1').first();
+    if (!row) return json({ error: 'Run the database migration first.' }, 503);
+    const state = JSON.parse(row.data);
+    return json({ version: row.version, state: { ...state, hero: KopiSettings.hero(state.hero) } });
+  }
+  if (request.method !== 'PUT') return json({ error: 'Method not allowed.' }, 405);
+  const input = await body(request, 256 * 1024, 'Team data is too large.');
+  if (input instanceof Response) return input;
   if (!Number.isSafeInteger(input?.version) || input.version < 0 || !validState(input.state)) return json({ error: 'Invalid team data.' }, 400);
   const { roster, history, customs, groups, hero } = input.state;
   const result = await env.DB.prepare(

@@ -35,6 +35,15 @@ globalThis.KopiTeamSync = class KopiTeamSync {
     }
     return data;
   }
+  // Order readout audio from the Worker's AI voice; callers fall back to the phone voice on failure.
+  async voice(text, signal) {
+    const response = await this.fetcher('/api/speak', {
+      method: 'POST', cache: 'no-store', credentials: 'omit', signal,
+      headers: { Authorization: 'Bearer ' + this.token, 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    if (!response.ok || !(response.headers.get('Content-Type') || '').startsWith('audio/')) throw new Error('Voice is unavailable.');
+    return response.blob();
+  }
   async load() {
     const data = await this.request();
     this.version = data.version;
