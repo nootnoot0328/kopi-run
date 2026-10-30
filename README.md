@@ -28,7 +28,7 @@ edited usuals are retained when runs finish. **Drink something different today**
 continues to change only the current order.
 
 When a shared usual changes, selected cards on other devices update without
-being deselected. Order summaries, Counter and Hand back use the same updated
+being deselected. Order summaries and Counter use the same updated
 selections. Unchanged alternative usuals and unrelated one-off choices stay put.
 Replacement lineage follows successive usual edits even while a device is closed;
 versioned device drafts also retain their roster snapshot for reconciliation.
@@ -46,12 +46,24 @@ saving/assigning; equivalent off-menu chips are hidden to avoid duplicates.
 
 **Done — show at counter** briefly gathers the selected name cards into a
 handwritten-style order receipt before opening Counter (about 0.9 seconds).
-**Finish run and learn from it** records the run once, then celebrates with
-clinking cups, confetti, and **Gam xia lao ban hehe!** (about 1.7 seconds).
-Both effects can be skipped, trap keyboard focus while open, and keep background
-controls inert. Reduced-motion preferences skip the collage and use a static
-thank-you notice. Animations never change which people or drinks were selected;
+**Finish run**, directly on Counter, records the run once and celebrates with
+clinking cups, confetti, and **Gam xia lao ban hehe!**. There is no Hand back page.
+The celebration stays open until the user swipes at least 70px, taps Close, or
+presses Escape. It has no auto-dismiss timer. Both overlays manage keyboard focus
+and keep background controls inert. Reduced-motion preferences skip the collage
+and show the same persistent celebration with its animation disabled.
+Animations never change which people or drinks were selected;
 finishing still uses the normal shared-history save and error handling.
+
+Counter has visual **Order cards**, received-drink counts, **🎤 Speak order**,
+and **Finish run**. Speech starts only on a tap, reads aggregated drink names and
+quantities with local wording ("Boss, order ah… that's all, gam sia boss!"), and
+does not read people's names. Stop/replay are supported. It cancels when the
+order changes, the user leaves Counter, or the page is hidden. Singapore English
+voices are preferred, with English fallback; accent/pronunciation depend on the
+voices installed on the device. This uses browser speech synthesis, not microphone
+recording. Playback failures show a retry message, and unsupported browsers retain
+all visual order controls.
 
 The jade-and-amber **Who's buying today?** hero uses the Singapore weekday,
 updates at midnight and on foreground return, and does not change orders.
@@ -146,7 +158,7 @@ npm test
 Tests exercise actual local D1 storage, rejected unauthorized requests, schema
 and body limits, simultaneous saves, stale writes, client conflicts, retry after
 network failure, and a refresh response arriving after a newer save. `npm run
-deploy` builds an explicit five-file asset folder so repository files and
+deploy` builds an explicit six-file asset folder so repository files and
 secrets cannot be served accidentally.
 
 `npm run test:browser` runs isolated mobile browser checks against a running local
@@ -159,7 +171,9 @@ The checks cover two-device selection updates, saved/legacy drafts, multiple
 usuals and one-offs, manual/automatic/foreground sync, failed and concurrent
 requests, all drink composers, buyer settings and conflicts, plain-text rendering,
 Singapore midnight/weekends, old data, mobile overflow, drink marks, both motion
-transitions, skipping, reduced-motion mode, and duplicate-finish protection. Screenshots go to
+transitions, persistent swipe/close dismissal, reduced-motion mode, duplicate-finish
+protection, and mocked speech lifecycle/error/stale-order cancellation. Audible
+accent quality still needs listening on the actual phone. Screenshots go to
 ignored `artifacts/`.
 
 Subsequent deployments: `npm ci`, `npm test`, `npm run deploy`. Secrets and D1

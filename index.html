@@ -127,9 +127,6 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .listrow{display:flex;align-items:center;gap:11px;width:100%;padding:12px 0;background:none;
   border:none;border-bottom:1px solid var(--line);text-align:left;justify-content:flex-start}
 .listrow.static{justify-content:space-between}
-.listrow .box{width:26px;height:26px;border:2px solid var(--line);border-radius:7px;background:#fff;
-  color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.listrow.done .box{background:var(--jade);border-color:var(--jade)}
 .listrow.done span:last-child{opacity:.4}
 .listrow strong{display:block;font-size:15px;font-weight:700}
 .listrow em{font-style:normal;font-size:14px;color:var(--mute)}
@@ -168,6 +165,10 @@ html.counter-screen .syncbar time{color:rgba(255,255,255,.65)}
 .soft-drinks{margin-top:12px}
 .run-motion{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:rgba(7,63,44,.94);overflow:hidden;color:var(--ink)}
 .run-motion .motion-skip{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);border:1px solid rgba(255,255,255,.5);border-radius:22px;background:transparent;color:#fff;padding:10px 18px;font-weight:700}
+.run-motion .motion-close{position:absolute;right:18px;top:calc(18px + env(safe-area-inset-top));min-height:44px;padding:10px 16px;border-radius:24px;border:1px solid #fff8;background:transparent;color:#fff;font-weight:800}
+.thanks-motion{touch-action:none}
+.thanks-drag{transition:transform .16s ease-out}
+.motion-hint{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));left:20px;right:20px;text-align:center;color:#fff;font-size:13px;opacity:.8}
 .motion-name{position:fixed;left:var(--left);top:var(--top);width:150px;padding:11px;background:var(--paper);border:2px solid var(--amber);border-radius:12px;color:var(--ink);box-shadow:0 5px 20px #0002;pointer-events:none;animation:cards-gather .44s cubic-bezier(.5,0,.2,1) both;animation-delay:var(--delay)}
 .motion-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 .motion-name span{display:block;font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
@@ -185,10 +186,14 @@ html.counter-screen .syncbar time{color:rgba(255,255,255,.65)}
 .thanks-card h2{font-size:28px;line-height:1.12;margin:13px 0;color:var(--jade-deep)}
 .thanks-card p{font-size:14px;color:var(--mute);margin:7px 0;line-height:1.5}
 .thanks-cups{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px}
-.thanks-cups .ico:first-child{animation:cup-clink-left .65s ease-in-out both}
-.thanks-cups .ico:last-child{animation:cup-clink-right .65s ease-in-out both}
+.thanks-cups .ico:first-child{animation:cup-clink-left 3.2s ease-in-out infinite}
+.thanks-cups .ico:last-child{animation:cup-clink-right 3.2s ease-in-out infinite}
 .motion-confetti{position:absolute;left:50%;top:40%;width:7px;height:12px;border-radius:2px;background:var(--color);pointer-events:none;animation:confetti-pop 1.05s .12s ease-out both;--x:0px;--y:0px}
-.thank-toast{margin:10px 12px;padding:12px 16px;background:var(--jade-deep);border-left:4px solid var(--amber);border-radius:12px;color:#fff;font-weight:800}
+.speech-panel{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.speech-button{flex-shrink:0;min-height:44px;border:1px solid var(--amber);border-radius:12px;padding:10px 13px;background:var(--amber);color:var(--ink);font-weight:800}
+.speech-button:disabled{opacity:.5}
+.speech-panel p{font-size:12px;line-height:1.4;color:#ffffffb0;margin:0}
+.speech-panel p.speech-error{color:#FFD489}
 @keyframes cards-gather{0%{opacity:1;transform:translate(0,0) rotate(0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--tilt)) scale(.4)}}
 @keyframes receipt-arrive{from{opacity:0;transform:translateY(18px) scale(.88) rotate(-4deg)}to{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
 @keyframes receipt-depart{to{opacity:0;transform:translateX(70px) rotate(5deg)}}
@@ -553,6 +558,7 @@ if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist()
 <script src="settings.js"></script>
 <script src="team.js"></script>
 <script src="people.js"></script>
+<script src="speech.js"></script>
 <script>
 /* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
@@ -815,13 +821,8 @@ function App() {
   const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
   const [group, setGroup] = useState(() => store.get(localKey(K.active), ""));
   const [hero, setHero] = useState(() => KopiSettings.hero(initial('hero', K.hero, KopiSettings.defaults())));
-  const [motion, setMotion] = useState(null), [toast, setToast] = useState('');
+  const [motion, setMotion] = useState(null);
   const motionLock = useRef(false), motionAction = useRef(null);
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(''), 2400);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   useEffect(() => { if (!team) store.set(K.custom, customs); }, [customs]);
   useEffect(() => { if (!team) store.set(K.groups, groups); }, [groups]);
@@ -964,9 +965,8 @@ function App() {
   function beginMotion(kind, action) {
     if (motionLock.current || !orders.length) return;
     motionLock.current = true;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (kind === 'order' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       action();
-      if (kind === 'thanks') setToast('Gam xia lao ban hehe! ☕');
       queueMicrotask(() => { motionLock.current = false; });
       return;
     }
@@ -997,7 +997,7 @@ function App() {
       <header>
         <div class="brand">Kopitiam Run</div>
         <nav>
-          ${[["who", "Who's in"], ["drink", "By drink"], ["counter", "Counter"], ["back", "Hand back"], ["set", "Setup"]].map(
+          ${[["who", "Who's in"], ["drink", "By drink"], ["counter", "Counter"], ["set", "Setup"]].map(
             ([id, l]) => html`<button class=${"tab" + (screen === id ? " on" : "")} onClick=${() => setScreen(id)}>${l}</button>`
           )}
         </nav>
@@ -1005,14 +1005,12 @@ function App() {
 
       ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
       ${(screen === 'who' || screen === 'drink') && html`<${BuyerHero} hero=${hero} />`}
-      ${toast && html`<div class="thank-toast" role="status">${toast}</div>`}
       ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} onStartCounter=${startCounter} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
         onAssign=${(who, line) => setPicked((p) => ({ ...p, [who]: line }))}
         onOneOff=${(line) => setExtras((e) => [...e, line])} />`}
-      ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
-      ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${finishRun} />`}
+      ${screen === "counter" && html`<${Counter} lines=${lines} onFinish=${finishRun} />`}
       ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
         groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }} />`}
 
@@ -1031,13 +1029,14 @@ function App() {
 
 function RunMotion({ data, onFinish }) {
   const skip = useRef(null);
+  const gesture = useRef(null), [swipe, setSwipe] = useState({ x: 0, y: 0 });
   const isOrder = data.kind === 'order';
   useLayoutEffect(() => {
     const previous = document.activeElement;
     skip.current?.focus({ preventScroll: true });
-    const timer = setTimeout(onFinish, isOrder ? 900 : 1700);
+    const timer = isOrder ? setTimeout(onFinish, 900) : null;
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const reduce = () => { if (query.matches) onFinish(); };
+    const reduce = () => { if (query.matches && isOrder) onFinish(); };
     query.addEventListener('change', reduce);
     return () => {
       clearTimeout(timer); query.removeEventListener('change', reduce);
@@ -1045,7 +1044,21 @@ function RunMotion({ data, onFinish }) {
       else document.querySelector('.tab.on')?.focus({ preventScroll: true });
     };
   }, []);
+  function endSwipe(event) {
+    const start = gesture.current; gesture.current = null;
+    if (start && event.type !== 'pointercancel' && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 70) onFinish();
+    else setSwipe({ x: 0, y: 0 });
+  }
   return html`<div class=${'run-motion ' + (isOrder ? 'order-motion' : 'thanks-motion')} role="dialog" aria-modal="true" aria-labelledby="motion-title"
+    onPointerDown=${event => {
+      if (isOrder || !event.isPrimary || event.button !== 0 || event.target.closest('button')) return;
+      gesture.current = { x: event.clientX, y: event.clientY };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }}
+    onPointerMove=${event => {
+      if (gesture.current) setSwipe({ x: (event.clientX - gesture.current.x) * .65, y: (event.clientY - gesture.current.y) * .65 });
+    }}
+    onPointerUp=${endSwipe} onPointerCancel=${endSwipe}
     onKeyDown=${event => {
       if (event.key === 'Escape') onFinish();
       if (event.key === 'Tab') { event.preventDefault(); skip.current?.focus(); }
@@ -1064,12 +1077,14 @@ function RunMotion({ data, onFinish }) {
       ${Array.from({ length: 14 }, (_, index) => html`<i class="motion-confetti" aria-hidden="true" style=${{
         '--x': Math.cos(index * Math.PI / 7) * 165 + 'px', '--y': Math.sin(index * Math.PI / 7) * 210 + 75 + 'px', '--color': ['#E09A2B', '#B8DFCE', '#F7F5EF'][index % 3],
       }} />`)}
+      <div class="thanks-drag" style=${{ transform: `translate(${swipe.x}px, ${swipe.y}px)`, transition: gesture.current ? 'none' : undefined }}>
       <section class="thanks-card"><div class="motion-eyebrow">Run complete</div>
         <div class="thanks-cups" aria-hidden="true"><${DrinkIcon} line=${data.orders[0]?.drink || 'Kopi'} size=${66} /><${DrinkIcon} line="Kopi" size=${66} /></div>
         <h2 id="motion-title">Gam xia lao ban hehe!</h2>
         <p>${data.orders.length} drinks, one happy team.</p><p>Cheers to the boss ☕</p>
-      </section>`}
-    <button ref=${skip} class="motion-skip" onClick=${onFinish}>${isOrder ? 'Skip animation' : 'Back to the gang'}</button>
+      </section></div>`}
+    <button ref=${skip} class=${isOrder ? 'motion-skip' : 'motion-close'} aria-label=${isOrder ? 'Skip animation' : 'Close celebration'} onClick=${onFinish}>${isOrder ? 'Skip animation' : '✕ Close'}</button>
+    ${!isOrder && html`<div class="motion-hint">Stay awhile, boss. Swipe away or tap Close when ready.</div>`}
   </div>`;
 }
 
@@ -1445,7 +1460,33 @@ function families(lines) {
   return arr;
 }
 
-function Counter({ lines, onDone }) {
+function SpeakOrder({ lines }) {
+  const reader = useRef(null), previous = useRef(lines);
+  if (!reader.current) reader.current = new KopiSpeech.Reader();
+  const [, update] = useState(0);
+  useEffect(() => {
+    const current = reader.current;
+    const unsubscribe = current.subscribe(() => update(value => value + 1));
+    const hidden = () => { if (document.hidden) current.stop(); };
+    document.addEventListener('visibilitychange', hidden);
+    return () => { unsubscribe(); document.removeEventListener('visibilitychange', hidden); current.dispose(); };
+  }, []);
+  useEffect(() => {
+    if (previous.current !== lines) reader.current.stop('Order changed. Tap Speak order for the latest list.');
+    previous.current = lines;
+  }, [lines]);
+  const current = reader.current;
+  return html`<div class="speech-panel">
+    <button class="speech-button" disabled=${!current.available} onClick=${() => current.active ? current.stop() : current.speak(lines)}>
+      ${current.active ? '■ Stop reading' : '🎤 Speak order'}
+    </button>
+    <p class=${current.status === 'error' ? 'speech-error' : ''} role=${current.status === 'error' ? 'alert' : 'status'} aria-live="polite">
+      ${!current.available ? 'Speech is unavailable in this browser.' : current.message || 'Singapore-style readout. Boss, order ah…'}
+    </p>
+  </div>`;
+}
+
+function Counter({ lines, onFinish }) {
   const [i, setI] = useState(0);
   const [mode, setMode] = useState("read");
   /* how many of each line are physically on the counter, keyed by the line text */
@@ -1463,11 +1504,11 @@ function Counter({ lines, onDone }) {
 
   const tabs = html`
     <div class="modebar">
-      <button class=${"mtab" + (mode === "read" ? " on" : "")} onClick=${() => setMode("read")}>Read out</button>
+      <button class=${"mtab" + (mode === "read" ? " on" : "")} onClick=${() => setMode("read")}>Order cards</button>
       <button class=${"mtab" + (mode === "check" ? " on" : "")} onClick=${() => setMode("check")}>
         On the counter · ${got}/${total}
       </button>
-    </div>`;
+    </div><${SpeakOrder} lines=${lines} />`;
 
   /* ---- check off what has actually landed ---- */
   if (mode === "check") {
@@ -1501,9 +1542,7 @@ function Counter({ lines, onDone }) {
             })}`)}
         </div>
 
-        <button class=${allHere ? "primary" : "ghostdark"} onClick=${onDone}>
-          ${allHere ? "All here — hand them back" : "Go anyway · " + (total - got) + " still missing"}
-        </button>
+        <button class="primary" onClick=${onFinish}>Finish run</button>
       </div>`;
   }
 
@@ -1517,6 +1556,7 @@ function Counter({ lines, onDone }) {
       </div>
       <button class="primary" onClick=${() => setMode("check")}>Tick them off as they arrive</button>
       <button class="ghostdark" onClick=${() => setI(0)}>Read again</button>
+      <button class="primary" onClick=${onFinish}>Finish run</button>
     </div>`;
 
   const f = fam[i];
@@ -1554,33 +1594,9 @@ function Counter({ lines, onDone }) {
         <div class="tapme">Tap when all these drinks are on the counter</div>
       </button>
 
-      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>Repeat order</button>
+      ${i > 0 && html`<button class="ghostdark" onClick=${() => setI(i - 1)}>Previous card</button>`}
+      <button class="primary" onClick=${onFinish}>Finish run</button>
     </div>`;
-}
-
-/* ---------- hand back ---------- */
-function HandBack({ orders, onClose }) {
-  const [done, setDone] = useState([]);
-  useEffect(() => setDone([]), [orders]);
-  return html`
-    <main>
-      <h2>Whose cup is whose</h2>
-      <div class="sub">${done.length} of ${orders.length} handed out</div>
-      <div class="list">
-        ${orders.map((o, i) => {
-          const on = done.indexOf(i) > -1;
-          return html`
-            <button class=${"listrow" + (on ? " done" : "")}
-              onClick=${() => setDone((d) => on ? d.filter((x) => x !== i) : [...d, i])}>
-              <span class="box">${on ? "✓" : ""}</span>
-              <${DrinkIcon} line=${o.drink} size=${28} />
-              <span><strong>${o.who || "Spare"}</strong><em>${o.drink}</em></span>
-            </button>`;
-        })}
-      </div>
-      <button class="primary" onClick=${onClose}>Finish run and learn from it</button>
-      <div class="note">Closing the run learns from what people took. Manually edited usuals stay as saved.</div>
-    </main>`;
 }
 
 /* ---------- setup / backup ---------- */

@@ -68,8 +68,7 @@ test('two devices, live selected usual replacement, multiple usuals, one-offs, a
   await a.getByRole('button', { name: 'Counter', exact: true }).click();
   await sync(a);
   await a.locator('.dark').getByText('Coke', { exact: true }).waitFor();
-  await a.getByRole('button', { name: 'Hand back', exact: true }).click();
-  await a.locator('main').getByText('Coke', { exact: true }).waitFor();
+  assert.equal(await a.getByRole('button', { name: 'Hand back', exact: true }).count(), 0);
   await a.getByRole('button', { name: "Who's in", exact: true }).click();
   assert.equal(await card(a, 'Alice').locator('.drink').innerText(), 'Coke');
   assert.match(await card(a, 'Alice').getAttribute('class'), /\bon\b/);
@@ -203,41 +202,111 @@ test('drink logos, retired quick option, order collage, skip, and completion exa
   assert.equal(await page.locator('.app-content').evaluate(element => element.inert), true);
   await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.motion-receipt')).opacity) > .95);
   await page.screenshot({ path: 'artifacts/order-collage-mobile.png' });
-  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Order cards', exact: true }).waitFor();
   assert.equal(await page.locator('.run-motion').count(), 0);
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kr.draft.v1.team')).picked), draft);
   assert.equal((await read()).version, previous.version);
   await page.getByRole('button', { name: "Who's in", exact: true }).click();
   await page.getByRole('button', { name: 'Done — show at counter', exact: true }).click();
   await page.getByRole('button', { name: 'Skip animation', exact: true }).click();
-  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Hand back', exact: true }).click();
-  const finish = await page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).elementHandle();
-  await save(page, () => page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).click());
+  await page.getByRole('button', { name: 'Order cards', exact: true }).waitFor();
+  const finish = await page.getByRole('button', { name: 'Finish run', exact: true }).elementHandle();
+  await save(page, () => page.getByRole('button', { name: 'Finish run', exact: true }).click());
   await page.getByRole('dialog', { name: 'Gam xia lao ban hehe!', exact: true }).waitFor();
   await finish.evaluate(element => { element.click(); element.click(); });
   await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.thanks-card')).opacity) > .95);
+  await page.clock.fastForward(8000);
+  assert.equal(await page.getByRole('dialog', { name: 'Gam xia lao ban hehe!', exact: true }).count(), 1);
   await page.screenshot({ path: 'artifacts/lao-ban-celebration-mobile.png' });
-  await page.getByRole('button', { name: 'Back to the gang', exact: true }).click();
+  await page.getByRole('button', { name: 'Close celebration', exact: true }).click();
   const saved = await read();
   assert.equal(saved.state.history.length, 1);
   assert.equal(saved.state.history[0].orders.length, 3);
   assert.equal(await page.locator('.card.on').count(), 0);
   assert.equal(await page.locator('.run-motion').count(), 0);
   assert.equal(await page.locator('.app-content').evaluate(element => element.inert), false);
+  // A second run can be finished and its persistent celebration swiped away.
+  await card(page, 'Alice').locator('.cardmain').click();
+  await page.getByRole('button', { name: 'Counter', exact: true }).click();
+  await save(page, () => page.getByRole('button', { name: 'Finish run', exact: true }).click());
+  await page.getByRole('dialog', { name: 'Gam xia lao ban hehe!', exact: true }).waitFor();
+  await page.mouse.move(180, 420); await page.mouse.down();
+  await page.mouse.move(300, 420, { steps: 5 }); await page.mouse.up();
+  assert.equal(await page.locator('.run-motion').count(), 0);
+  assert.equal((await read()).state.history.length, 2);
 });
 
 test('reduced motion skips the collage and provides a static thank-you without duplicate history', { timeout: 60000 }, async t => {
   await seed(); const { page } = await context(t); await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page);
   await card(page, 'Alice').locator('.cardmain').click();
   await page.getByRole('button', { name: 'Done — show at counter', exact: true }).click();
-  await page.getByRole('button', { name: 'Read out', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Order cards', exact: true }).waitFor();
   assert.equal(await page.locator('.run-motion').count(), 0);
-  await page.getByRole('button', { name: 'Hand back', exact: true }).click();
-  await save(page, () => page.getByRole('button', { name: 'Finish run and learn from it', exact: true }).click());
-  await page.locator('.thank-toast').filter({ hasText: 'Gam xia lao ban hehe!' }).waitFor();
+  await save(page, () => page.getByRole('button', { name: 'Finish run', exact: true }).click());
+  await page.getByRole('dialog', { name: 'Gam xia lao ban hehe!', exact: true }).waitFor();
+  assert.equal(await page.locator('.thanks-card').evaluate(element => getComputedStyle(element).animationName), 'none');
+  await page.clock.fastForward(10000);
+  assert.equal(await page.locator('.run-motion').count(), 1);
+  await page.keyboard.press('Escape');
   assert.equal(await page.locator('.run-motion').count(), 0);
   assert.equal((await read()).state.history.length, 1);
+});
+
+test('speech reads aggregate quantities with local wording, stops, retries, and cancels stale orders', { timeout: 60000 }, async t => {
+  const state = fixture(); state.roster[1].usuals = ['Kopi O']; await seed(state);
+  const { ctx, page: a } = await context(t), { page: b } = await context(t);
+  await ctx.addInitScript(() => {
+    const state = { spoken: [], current: null, cancels: 0 }; window.__speech = state;
+    const synth = {
+      getVoices: () => [{ name: 'US English', lang: 'en-US' }, { name: 'Singapore English', lang: 'en-SG' }],
+      speak: utterance => {
+        state.spoken.push({ text: utterance.text, lang: utterance.lang, voice: utterance.voice?.name });
+        state.current = utterance; queueMicrotask(() => utterance.onstart?.());
+      },
+      cancel: () => { state.cancels++; const current = state.current; state.current = null; current?.onerror?.({ error: 'interrupted' }); },
+    };
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: class { constructor(text) { this.text = text; } } });
+  });
+  await open(a); await open(b);
+  await card(a, 'Alice').locator('.cardmain').click(); await card(a, 'Bob').locator('.cardmain').click();
+  await a.getByRole('button', { name: 'Counter', exact: true }).click();
+  assert.equal(await a.getByRole('button', { name: 'Hand back', exact: true }).count(), 0);
+  assert.equal(await a.evaluate(() => __speech.spoken.length), 0);
+  await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.getByRole('button', { name: '■ Stop reading', exact: true }).waitFor();
+  const utterance = await a.evaluate(() => __speech.spoken[0]);
+  assert.equal(utterance.text, "Boss, order ah. 2 Kopi O. That's all, gam sia boss!");
+  assert.equal(utterance.lang, 'en-SG'); assert.equal(utterance.voice, 'Singapore English');
+  await a.getByRole('button', { name: '■ Stop reading', exact: true }).click();
+  await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.evaluate(() => __speech.current.onerror({ error: 'synthesis-failed' }));
+  await a.getByRole('alert').filter({ hasText: 'Could not play speech' }).waitFor();
+  await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  await a.getByRole('button', { name: '■ Stop reading', exact: true }).waitFor();
+  await editUsual(b, 'Alice', 'Kopi O', 'Coke'); await sync(a);
+  await a.getByRole('button', { name: '🎤 Speak order', exact: true }).waitFor();
+  await a.getByText('Order changed. Tap Speak order for the latest list.', { exact: true }).waitFor();
+  assert.equal(await a.evaluate(() => __speech.spoken.length), 3);
+  await a.getByRole('button', { name: '🎤 Speak order', exact: true }).click();
+  assert.match(await a.evaluate(() => __speech.spoken.at(-1).text), /1 Coke/);
+  await a.screenshot({ path: 'artifacts/spoken-counter-mobile.png' });
+  const cancels = await a.evaluate(() => __speech.cancels);
+  await a.getByRole('button', { name: "Who's in", exact: true }).click();
+  assert.ok(await a.evaluate(() => __speech.cancels) > cancels);
+});
+
+test('unavailable speech leaves visual counter usable with a clear explanation', { timeout: 60000 }, async t => {
+  await seed(); const { ctx, page } = await context(t);
+  await ctx.addInitScript(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: null }));
+  await open(page); await card(page, 'Alice').locator('.cardmain').click();
+  await page.getByRole('button', { name: 'Counter', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '🎤 Speak order', exact: true }).isDisabled(), true);
+  await page.getByText('Speech is unavailable in this browser.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'On the counter · 0/1', exact: true }).click();
+  await page.getByRole('button', { name: 'mark Kopi O', exact: true }).click();
+  await page.getByRole('button', { name: 'On the counter · 1/1', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Finish run', exact: true }).waitFor();
 });
 
 test('buyer editor sync, preview, plain text, cancel, reload, and concurrent form protection', { timeout: 60000 }, async t => {
