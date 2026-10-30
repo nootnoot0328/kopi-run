@@ -148,6 +148,24 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .status.bad{border-color:var(--chilli)}
 .status.bad strong{color:var(--chilli)}
 .sync-note{margin:8px 12px;font-size:12px;color:var(--mute)}
+.syncbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 12px;font-size:12px}
+.syncbar strong{display:block;font-size:13px;color:var(--mute)}
+.syncbar.ok strong{color:var(--jade)}
+html.counter-screen .syncbar strong{color:var(--paper)}
+html.counter-screen .syncbar.ok strong{color:#8DD8AF}
+html.counter-screen .syncbar time{color:rgba(255,255,255,.65)}
+.syncbar time{display:block;color:var(--mute);font-size:11px;margin-top:3px}
+.syncbar button{min-height:40px;padding:8px 14px;border:1px solid var(--jade);background:var(--paper);border-radius:10px;color:var(--jade-deep);font-weight:800}
+.buyer-hero{margin:6px 12px 10px;padding:14px 16px;border-radius:14px;background:var(--jade-deep);color:var(--paper);border-left:5px solid var(--amber)}
+.buyer-hero h2{margin:0;font-size:14px;font-weight:600}
+.buyer-hero .buyer-names{font-size:24px;font-weight:900;color:#FFD489;margin:5px 0;overflow-wrap:anywhere}
+.buyer-hero p{font-size:12px;margin:0;opacity:.85;overflow-wrap:anywhere}
+.hero-editor{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.hero-editor h3{margin:0 0 8px;font-size:17px}
+.hero-editor label{display:block;margin-top:10px;font-size:13px;font-weight:700}
+.hero-editor input{margin-top:5px;width:100%}
+.hero-editor .buyer-hero{margin:12px 0}
+.soft-drinks{margin-top:12px}
 .people-row{flex-wrap:wrap;gap:8px}
 .people-row .rowmain{min-width:0;overflow-wrap:anywhere}
 .person-actions{display:flex;align-items:center;gap:6px}
@@ -499,6 +517,7 @@ var QR = (function () {
 if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
 </script>
 <!-- cloudflare-team-mode -->
+<script src="settings.js"></script>
 <script src="team.js"></script>
 <script src="people.js"></script>
 <script>
@@ -525,7 +544,7 @@ const store = {
   },
 };
 const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1",
-            custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1" };
+            custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1", hero: 'kr.hero.v1' };
 let team = null;
 const initial = (field, key, fallback) => team ? team.state[field] : store.get(key, fallback);
 const localKey = key => team ? key + '.team' : key;
@@ -558,6 +577,9 @@ const BASES = [
   { id: "Barley", milk: 0, sugar: 1, strength: 0 },
   { id: "Limau", milk: 0, sugar: 1, strength: 0 },
 ];
+const SOFT_DRINKS = ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Fanta Orange'];
+const softKey = value => value.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^cocacola/, 'coke');
+const softDrink = value => SOFT_DRINKS.find(drink => softKey(drink) === softKey(value)) || value;
 const GROUPS = [
   { key: "milk", gate: "milk", cards: [["O", "no milk"], ["C", "evaporated"]] },
   { key: "sugar", gate: "sugar", cards: [["Siu Dai", "less sweet"], ["Kosong", "no sugar"], ["Gah Dai", "extra sweet"]] },
@@ -723,7 +745,7 @@ function relearn(roster, history) {
 function App() {
   const [roster, setRoster] = useState(() => initial('roster', K.roster, []));
   const [history, setHistory] = useState(() => initial('history', K.history, []));
-  const [picked, setPicked] = useState(() => store.get(localKey(K.draft), {}));
+  const [picked, setPicked] = useState(() => KopiPeople.restoreDraft(store.get(localKey(K.draft), {}), roster));
   const [extras, setExtras] = useState([]);
   const [screen, setScreen] = useState("who");
   useLayoutEffect(() => {
@@ -734,6 +756,7 @@ function App() {
   const [customs, setCustoms] = useState(() => initial('customs', K.custom, []));
   const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
   const [group, setGroup] = useState(() => store.get(localKey(K.active), ""));
+  const [hero, setHero] = useState(() => KopiSettings.hero(initial('hero', K.hero, KopiSettings.defaults())));
 
   useEffect(() => { if (!team) store.set(K.custom, customs); }, [customs]);
   useEffect(() => { if (!team) store.set(K.groups, groups); }, [groups]);
@@ -742,27 +765,30 @@ function App() {
   useEffect(() => { if (group && groups.indexOf(group) === -1) setGroup(""); }, [groups, group]);
   useEffect(() => { if (!team) store.set(K.roster, roster); }, [roster]);
   useEffect(() => { if (!team) store.set(K.history, history); }, [history]);
-  useEffect(() => store.set(localKey(K.draft), picked), [picked]);
-  useEffect(() => {
-    if (team) team.queue({ roster, history, customs, groups });
-  }, [roster, history, customs, groups]);
+  useLayoutEffect(() => store.set(localKey(K.draft), KopiPeople.draft(picked, roster)), [picked, roster]);
+  useEffect(() => { if (!team) store.set(K.hero, hero); }, [hero]);
+  useLayoutEffect(() => {
+    if (team) team.queue({ roster, history, customs, groups, hero });
+  }, [roster, history, customs, groups, hero]);
   useEffect(() => {
     if (!team) return;
     const unsubscribe = team.subscribe((state, previous) => {
       if (!state) return;
       setPicked(picked => KopiPeople.reconcile(previous.roster, state.roster, picked));
       setRoster(state.roster); setHistory(state.history);
-      setCustoms(state.customs); setGroups(state.groups); setSheet(null);
+      setCustoms(state.customs); setGroups(state.groups); setHero(state.hero); setSheet(null);
     });
     const refresh = () => { if (!document.hidden) void team.refresh(); };
     const interval = setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
     const warn = event => { if (team.pending) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('beforeunload', warn);
     return () => {
       unsubscribe(); clearInterval(interval);
       window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
       window.removeEventListener('beforeunload', warn);
     };
   }, []);
@@ -883,6 +909,7 @@ function App() {
       </header>
 
       ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
+      ${(screen === 'who' || screen === 'drink') && html`<${BuyerHero} hero=${hero} />`}
       ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
@@ -891,7 +918,7 @@ function App() {
       ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
       ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
       ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
-        groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }} />`}
+        groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }} />`}
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
@@ -912,22 +939,78 @@ function downloadTeamEdits() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function TeamStatus({ detailed }) {
+function TeamStatus() {
   const [, update] = useState(0);
   useEffect(() => team.subscribe(() => update(n => n + 1)), []);
-  if (team.status === 'saved') return detailed
-    ? html`<p class="sync-note" role="status">✓ Team changes saved</p>` : null;
-  if (team.status === 'saving') return html`<p class="sync-note" role="status" aria-live="polite">Saving team changes…</p>`;
-  return html`<div class=${'nag status ' + (team.status === 'saved' ? 'ok' : 'bad')} role="status" aria-live="polite">
+  const checking = team.refreshing || team.status === 'checking';
+  const label = team.upToDate ? '✓ Up to date' : team.saving ? 'Saving changes…' : checking ? 'Checking…'
+    : team.status === 'conflict' ? 'Resolve sync conflict' : team.pending ? 'Unsaved changes'
+    : team.status === 'offline' ? 'Sync failed' : 'Changes saved';
+  return html`<div class=${'syncbar' + (team.upToDate ? ' ok' : '')}>
+    <div role="status" aria-live="polite"><strong>${label}</strong>
+      <time datetime=${team.lastSyncedAt ? new Date(team.lastSyncedAt).toISOString() : undefined}>Last synced: ${KopiSettings.syncTime(team.lastSyncedAt)}</time>
+    </div>
+    <button disabled=${checking || team.saving} onClick=${() => team.sync()}>${checking ? 'Syncing…' : 'Sync'}</button>
+  </div>
+  ${['error', 'offline', 'conflict'].includes(team.status) && html`<div class="nag status bad" role="alert">
     <strong>${team.message}</strong>
-    ${team.status === 'saved' && html`<span>One shared list for the team. Your current order stays on this device.</span>`}
     ${team.status === 'error' && html`<button class="ghost" onClick=${() => team.flush()}>Retry saving</button>
       <button class="link" onClick=${downloadTeamEdits}>Download unsaved edits</button>`}
-    ${team.status === 'offline' && html`<button class="ghost" onClick=${() => team.refresh()}>Refresh team list</button>`}
     ${team.status === 'conflict' && html`<button class="ghost" onClick=${() => {
       downloadTeamEdits(); team.pending = null; location.reload();
     }}>Download edits and load latest</button>`}
-  </div>`;
+  </div>`}`;
+}
+
+function useSingaporeDate() {
+  const [date, setDate] = useState(() => KopiSettings.singaporeDay().date);
+  useEffect(() => {
+    let timer;
+    const tick = () => {
+      const now = new Date(), day = KopiSettings.singaporeDay(now);
+      setDate(day.date);
+      const midnight = Date.parse(day.date + 'T00:00:00+08:00') + 86400000;
+      clearTimeout(timer); timer = setTimeout(tick, Math.min(30000, midnight - now.getTime() + 25));
+    };
+    const visible = () => { if (!document.hidden) tick(); };
+    tick(); document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); };
+  }, []);
+  return date;
+}
+
+function BuyerHero({ hero }) {
+  useSingaporeDate();
+  return html`<section class="buyer-hero" aria-label="Today's buyer">
+    <h2>${hero.heading}</h2><div class="buyer-names">${KopiSettings.buyer(hero)}</div><p>${hero.message}</p>
+  </section>`;
+}
+
+function HeroEditor({ hero, onSave }) {
+  const [draft, setDraft] = useState(null), [baseline, setBaseline] = useState(''), [error, setError] = useState('');
+  const edit = () => { setDraft(JSON.parse(JSON.stringify(hero))); setBaseline(JSON.stringify(hero)); setError(''); };
+  const change = (key, value) => setDraft(draft => ({ ...draft, [key]: value }));
+  function save(event) {
+    event.preventDefault();
+    if (baseline !== JSON.stringify(hero)) { setError('The team changed this schedule while you were editing. Cancel and reopen to use the latest version.'); return; }
+    if (!KopiSettings.validHero(draft)) { setError('Add a heading and fallback message. Keep each field within 200 characters.'); return; }
+    onSave(KopiSettings.hero(draft)); setDraft(null);
+  }
+  return html`<section class="hero-editor"><h3>Buyer schedule & hero card</h3>
+    ${!draft ? html`<p class="note">Edit the shared heading, message, and weekly buyer names. Roster names stay unchanged.</p>
+      <button class="ghost" onClick=${edit}>Edit buyer schedule</button>` : html`
+    <form onSubmit=${save}>
+      <label for="buyer-heading">Heading</label><input id="buyer-heading" maxlength="200" value=${draft.heading} onInput=${e => change('heading', e.target.value)} />
+      <label for="buyer-message">Small message</label><input id="buyer-message" maxlength="200" value=${draft.message} onInput=${e => change('message', e.target.value)} />
+      ${KopiSettings.weekdays.map(day => html`<label for=${'buyer-' + day}>${day} names${['Saturday', 'Sunday'].includes(day) ? ' (optional)' : ''}</label>
+        <input id=${'buyer-' + day} maxlength="200" value=${draft.days[day]} onInput=${e => setDraft(d => ({ ...d, days: { ...d.days, [day]: e.target.value } }))} />`)}
+      <label for="buyer-fallback">Fallback for days without names</label><input id="buyer-fallback" maxlength="200" value=${draft.fallback} onInput=${e => change('fallback', e.target.value)} />
+      <div class="label">Preview · today in Singapore</div><${BuyerHero} hero=${draft} />
+      ${error && html`<p role="alert" class="person-error">${error}</p>`}
+      <div class="btnrow"><button class="primary" type="submit">Save buyer schedule</button>
+        <button class="ghost" type="button" onClick=${() => { setDraft(null); setError(''); }}>Cancel</button></div>
+    </form>`}
+  </section>`;
 }
 
 /* ---------- install nag: the roster is not safe until this is gone ---------- */
@@ -1085,21 +1168,22 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
 function Composer({ customs, d, setD, free, setFree, onQuick }) {
   const b = d.base ? baseOf(d.base) : null;
   const typed = tidy(free);
+  const menuCustoms = (customs || []).filter(c => !SOFT_DRINKS.some(drink => softKey(drink) === softKey(c)));
   return html`
-    ${customs && customs.length > 0 && html`
+    ${menuCustoms.length > 0 && html`
       <div class="label">Off the menu</div>
       <div class="chips">
-        ${customs.map((c) => html`
+        ${menuCustoms.map((c) => html`
           <button class="chip" onClick=${() => onQuick(c)}>
             <${DrinkIcon} line=${c} size=${20} />${c}
           </button>`)}
       </div>`}
 
     <div class="label">Build one</div>
-    <div class=${"bases" + (typed ? " dim" : "")}>
+    <div class="bases">
       ${BASES.map((x) => html`
-        <button class=${"opt sm base" + (d.base === x.id ? " on" : "")} disabled=${!!typed}
-          onClick=${() => setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false })}>
+        <button class=${"opt sm base" + (!typed && d.base === x.id ? " on" : "")}
+          onClick=${() => { setFree(''); setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false }); }}>
           <${DrinkIcon} line=${x.id} size=${26} />${x.id}
         </button>`)}
     </div>
@@ -1122,7 +1206,11 @@ function Composer({ customs, d, setD, free, setFree, onQuick }) {
 
     <div class="label">Or just type it</div>
     <input value=${free} maxlength="200" placeholder="Calamansi ice lemon tea, 100 Plus…"
-      onInput=${(e) => setFree(e.target.value)} />`;
+      onInput=${(e) => setFree(e.target.value)} />
+    <section class="soft-drinks" aria-label="Soft drinks"><div class="label">Soft drinks</div>
+      <div class="chips">${SOFT_DRINKS.map(drink => html`<button class=${'chip' + (softDrink(typed) === drink ? ' on' : '')}
+        onClick=${() => onQuick(drink)}>${drink}</button>`)}</div>
+    </section>`;
 }
 
 function Builder({ title, onAdd, onCancel, customs, noteCustom, initialLine = '', buttonText = 'Use this', helpText }) {
@@ -1131,13 +1219,13 @@ function Builder({ title, onAdd, onCancel, customs, noteCustom, initialLine = ''
   const [d, setD] = useState(() => isRecipe ? recipe : { base: null, milk: "", sugar: "", strength: "", peng: false });
   const [free, setFree] = useState(() => isRecipe ? '' : initialLine);
   const typed = tidy(free);
-  const line = typed || (d.base ? recite(d) : "");
+  const line = softDrink(typed) || (d.base ? recite(d) : "");
   const use = (text, isFree) => { if (isFree) noteCustom(text); onAdd(text); };
 
   return html`
     <${Shell} title=${title} onCancel=${onCancel}>
       <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
-        onQuick=${(c) => use(c, true)} />
+        onQuick=${c => { setFree(c); setD({ base: null, milk: '', sugar: '', strength: '', peng: false }); }} />
       <div class="note">${helpText || "Anything the buttons can't say. It becomes a chip up top next time."}</div>
       <div class="preview">
         <${DrinkIcon} line=${line} size=${38} />
@@ -1152,7 +1240,7 @@ function ByDrink({ roster, picked, customs, noteCustom, onAssign, onOneOff, setS
   const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
   const [free, setFree] = useState("");
   const typed = tidy(free);
-  const line = typed || (d.base ? recite(d) : "");
+  const line = softDrink(typed) || (d.base ? recite(d) : "");
 
   function commit(who) {
     if (!line) return;
@@ -1221,9 +1309,10 @@ function Counter({ lines, onDone }) {
   /* how many of each line are physically on the counter, keyed by the line text */
   const [here, setHere] = useState({});
   const fam = useMemo(() => families(lines), [lines]);
+  useEffect(() => { setI(0); setHere({}); }, [lines]);
 
   const total = lines.reduce((n, l) => n + l.who.length, 0);
-  const got = Object.keys(here).reduce((n, k) => n + here[k], 0);
+  const got = lines.reduce((n, line) => n + Math.min(here[line.line] || 0, line.who.length), 0);
   const allHere = total > 0 && got >= total;
 
   function setCount(line, n) { setHere((h) => ({ ...h, [line]: n })); }
@@ -1330,6 +1419,7 @@ function Counter({ lines, onDone }) {
 /* ---------- hand back ---------- */
 function HandBack({ orders, onClose }) {
   const [done, setDone] = useState([]);
+  useEffect(() => setDone([]), [orders]);
   return html`
     <main>
       <h2>Whose cup is whose</h2>
@@ -1353,7 +1443,7 @@ function HandBack({ orders, onClose }) {
 
 /* ---------- setup / backup ---------- */
 function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
-                 groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson }) {
+                 groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }) {
   const [io, setIo] = useState("");
   const [grant, setGrant] = useState(null);
   const [showQR, setShowQR] = useState(false);
@@ -1375,7 +1465,7 @@ function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, me
     if (result.error) { setPersonError(result.error); return; }
     setEditing(result.name); setPersonName(result.name); setPersonError('');
   }
-  const dump = JSON.stringify({ roster, history, customs, groups });
+  const dump = JSON.stringify({ roster, history, customs, groups, hero });
 
   /* sharing one group instead of everyone is the point — smaller code, less clutter */
   const scoped = scope ? roster.filter((p) => inGroup(p, scope)) : roster;
@@ -1411,12 +1501,14 @@ function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, me
             Number.isSafeInteger(r.ts) && r.ts >= 0 && Array.isArray(r.orders) && r.orders.length <= 1000 &&
             r.orders.every(order => order && texts([order.who, order.drink], 2))) ||
           (o.customs !== undefined && !texts(o.customs, 20)) ||
-          (o.groups !== undefined && !texts(o.groups, 100))) throw new Error('Invalid backup');
-      if (team && !confirm('Replace the shared team roster and history with this backup?')) return;
+          (o.groups !== undefined && !texts(o.groups, 100)) ||
+          (o.hero !== undefined && !KopiSettings.validHero(o.hero))) throw new Error('Invalid backup');
+      if (team && !confirm('Replace the shared roster, history, and any settings included in this backup?')) return;
       if (Array.isArray(o.roster)) setRoster(o.roster);
       if (Array.isArray(o.history)) setHistory(o.history);
       if (Array.isArray(o.customs)) setCustoms(o.customs);
       if (Array.isArray(o.groups)) setGroups(o.groups);
+      if (o.hero !== undefined) setHero(KopiSettings.hero(o.hero));
       setIo(""); setMsg(team ? "Backup loaded. Check the save status above." : "Full backup restored.");
     } catch (e) { setMsg("That isn't a valid backup."); }
   }
@@ -1446,6 +1538,7 @@ function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, me
   return html`
     <main>
       <h2>Setup</h2>
+      <${HeroEditor} hero=${hero} onSave=${setHero} />
       ${!team && !persisted && html`<div class="warn">This browser is blocking storage. Your roster will vanish when you close the tab. Use the backup box below.</div>`}
 
       <div class="label">Storage</div>

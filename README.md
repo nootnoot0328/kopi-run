@@ -6,20 +6,52 @@ browser: no installation, individual setup, or recurring roster imports needed.
 The roster, usual drinks, off-menu drinks, groups, and completed runs live in
 Cloudflare D1. Current order selections and the active group stay on each device.
 The page loads the cloud list before rendering, saves changes automatically, and
-refreshes other colleagues' changes every 15 seconds and when the window regains focus.
+refreshes other colleagues' changes every 15 seconds, on focus, and immediately
+when the page becomes visible again. A compact **Sync** control is always near
+the top. **Last synced** is the last successful server check (Singapore time),
+not when someone edited a drink. **✓ Up to date** requires a successful check
+with no pending edits, in-flight requests, or unresolved conflict. A save alone
+does not advance the last-check timestamp. Manual Sync saves pending edits first
+and retains them if saving fails; it never fetches over a conflict.
 
 Use **Setup → Your people → Edit** to rename a person. Their usual drinks, groups,
 completed-run history, and current selections are retained. The **↑ / ↓** buttons
 change the shared tag order on Who's in and By drink. Names must be nonempty and
 unique (ignoring case). Name and ordering controls are kept in Setup.
-The saved notice appears as a small line in Setup; other screens show only
-saving progress or actionable connection/conflict errors.
+The sync strip shows checking/saving states and actionable errors without a large
+success banner.
 
 To edit a usual, select the person on Who's in, tap the pencil, then tap their
 usual drink. The editor starts with that drink's existing options; choose
 **Save usual drink** to update the shared usual and today's order. Manually
 edited usuals are retained when runs finish. **Drink something different today**
 continues to change only the current order.
+
+When a shared usual changes, selected cards on other devices update without
+being deselected. Order summaries, Counter and Hand back use the same updated
+selections. Unchanged alternative usuals and unrelated one-off choices stay put.
+Replacement lineage follows successive usual edits even while a device is closed;
+versioned device drafts also retain their roster snapshot for reconciliation.
+Legacy name/drink-only drafts follow known replacements. An unrecognised drink
+in such a draft is retained as a one-off because it has no provenance proving
+that it was a former usual.
+
+Free text stays editable, and tapping any drink base clears it and activates
+that base's modifiers. The **Soft drinks** section offers Coke, Coke Zero,
+Sprite, 100 Plus, and Fanta Orange. Quick choices update the preview before
+saving/assigning; equivalent off-menu chips are hidden to avoid duplicates.
+
+The jade-and-amber **Who's buying today?** hero uses the Singapore weekday,
+updates at midnight and on foreground return, and does not change orders.
+Defaults: Monday Patrick & Gan, Tuesday YJ & Alaric, Wednesday JT & Abram,
+Thursday WR & Caesar, Friday Man & Stanford; weekends have no scheduled buyer.
+**Setup → Buyer schedule & hero card** edits the heading, message, all seven
+days, and fallback text with a preview and Save/Cancel. These settings sync via
+D1 independently of roster names. An editor detects another schedule change
+while its form is open, and saves still use the shared database version guard.
+Missing settings get defaults; existing customisations, including blank days,
+are preserved. Full backups include them. Older backups without settings retain
+the current schedule, and writes from older clients cannot erase it.
 
 Anyone holding the invitation can read and edit the shared data. The random
 invitation token stays in the URL fragment, is sent to the API as a bearer token,
@@ -61,13 +93,14 @@ the link cannot erase copies already downloaded by people with prior access.
 On the old app, open Setup and copy the roster sharing code (KR1) or the full
 backup. Open the new team link, then Setup, paste it into the import box, and
 choose **Add to team roster** for a KR1 code or **Restore full backup** for JSON.
-Wait for **Team list saved in the cloud**. Everyone now sees the imported data.
+Wait for saving to finish, then use **Sync** and confirm **✓ Up to date**.
+Everyone now sees the imported data.
 No colleague needs to repeat this import. Restoring a full backup replaces the
 shared roster/history and asks for confirmation; importing a KR1 code merges.
 
 The old app's browser data cannot be read automatically across a different origin.
 Older backups that contain only roster/history are supported; new exports also
-include groups and off-menu drinks.
+include groups, off-menu drinks, and buyer-card settings.
 
 ## Updates, offline use, and simultaneous edits
 
@@ -101,8 +134,20 @@ npm test
 Tests exercise actual local D1 storage, rejected unauthorized requests, schema
 and body limits, simultaneous saves, stale writes, client conflicts, retry after
 network failure, and a refresh response arriving after a newer save. `npm run
-deploy` builds an explicit four-file asset folder so repository files and
+deploy` builds an explicit five-file asset folder so repository files and
 secrets cannot be served accidentally.
+
+`npm run test:browser` runs isolated mobile browser checks against a running local
+Wrangler server. It rejects non-local server URLs and never writes to production.
+Use `KOPI_TEST_TOKEN` for the development token (or ignored
+`artifacts/team-token.txt`), optionally `KOPI_TEST_URL` for another local port.
+The tests use installed Chrome by default. Set `KOPI_BROWSER_CHANNEL=chromium`
+after `npx playwright install chromium` to use Playwright's browser instead.
+The checks cover two-device selection updates, saved/legacy drafts, multiple
+usuals and one-offs, manual/automatic/foreground sync, failed and concurrent
+requests, all drink composers, buyer settings and conflicts, plain-text rendering,
+Singapore midnight/weekends, old data, and mobile overflow. Screenshots go to
+ignored `artifacts/`.
 
 Subsequent deployments: `npm ci`, `npm test`, `npm run deploy`. Secrets and D1
 data are retained. Apply any new database migrations before deploying code that

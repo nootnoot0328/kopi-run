@@ -1,3 +1,4 @@
+import '../settings.js';
 const json = (body, status = 200) => Response.json(body, {
   status,
   headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' },
@@ -17,6 +18,7 @@ export function validState(s) {
       (p.groups === undefined || strings(p.groups, 100))) &&
     new Set(s.roster.map(p => p.name.toLowerCase())).size === s.roster.length &&
     strings(s.customs, 20) && strings(s.groups, 100) &&
+    (s.hero === undefined || KopiSettings.validHero(s.hero)) &&
     Array.isArray(s.history) && s.history.length <= 60 && s.history.every(r =>
       r && Number.isSafeInteger(r.ts) && r.ts >= 0 && Array.isArray(r.orders) &&
       r.orders.length <= 1000 && r.orders.every(o => o && text(o.who) && text(o.drink)));
@@ -32,7 +34,8 @@ async function api(request, env) {
   if (request.method === 'GET') {
     const row = await env.DB.prepare('SELECT version, data FROM team_state WHERE id = 1').first();
     if (!row) return json({ error: 'Run the database migration first.' }, 503);
-    return json({ version: row.version, state: JSON.parse(row.data) });
+    const state = JSON.parse(row.data);
+    return json({ version: row.version, state: { ...state, hero: KopiSettings.hero(state.hero) } });
   }
   if (request.method !== 'PUT') return json({ error: 'Method not allowed.' }, 405);
   const origin = request.headers.get('Origin');
@@ -57,10 +60,10 @@ async function api(request, env) {
   try { input = JSON.parse(new TextDecoder().decode(bytes)); }
   catch { return json({ error: 'Invalid JSON.' }, 400); }
   if (!Number.isSafeInteger(input?.version) || input.version < 0 || !validState(input.state)) return json({ error: 'Invalid team data.' }, 400);
-  const { roster, history, customs, groups } = input.state;
+  const { roster, history, customs, groups, hero } = input.state;
   const result = await env.DB.prepare(
-    'UPDATE team_state SET data = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = 1 AND version = ?'
-  ).bind(JSON.stringify({ roster, history, customs, groups }), input.version).run();
+    "UPDATE team_state SET data = json_set(?, '$.hero', json(COALESCE(?, json_extract(data, '$.hero'), ?))), version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = 1 AND version = ?"
+  ).bind(JSON.stringify({ roster, history, customs, groups }), hero === undefined ? null : JSON.stringify(hero), JSON.stringify(KopiSettings.defaults()), input.version).run();
   if (!result.meta.changes) return json({ error: 'A colleague has saved newer changes. Load the latest team list before editing again.' }, 409);
   return json({ version: input.version + 1 });
 }
@@ -70,7 +73,7 @@ export default {
     try {
       const path = new URL(request.url).pathname;
       if (path.startsWith('/api/')) return await api(request, env);
-      if (!['/', '/index.html', '/team.js', '/people.js', '/sw.js'].includes(path)) return new Response('Not found', { status: 404 });
+      if (!['/', '/index.html', '/settings.js', '/team.js', '/people.js', '/sw.js'].includes(path)) return new Response('Not found', { status: 404 });
       const response = await env.ASSETS.fetch(request);
       const headers = new Headers(response.headers);
       headers.set('Referrer-Policy', 'no-referrer');

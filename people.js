@@ -7,7 +7,14 @@ globalThis.KopiPeople = {
     if (!drink || drink.length > 200) throw new Error('Enter a drink within 200 characters.');
     if (!person.usuals.includes(oldDrink)) throw new Error('This usual drink has changed. Reopen the editor.');
     const usuals = [...new Set(person.usuals.map(usual => usual === oldDrink ? drink : usual))];
-    return { ...person, usuals, usualsLocked: true };
+    // Keep replacement lineage so an older browser draft can catch up through
+    // several edits, including edits made while that browser was closed.
+    const changes = { ...person.usualChanges, [oldDrink]: drink };
+    for (const key of Object.keys(changes)) {
+      if (changes[key] === oldDrink) changes[key] = drink;
+      if (usuals.includes(key)) delete changes[key];
+    }
+    return { ...person, usuals, usualsLocked: true, usualChanges: changes };
   },
   rename({ roster, history, picked }, oldName, value) {
     const name = value.trim().replace(/\s+/g, ' ');
@@ -35,11 +42,41 @@ globalThis.KopiPeople = {
     return next;
   },
   reconcile(before, after, picked) {
-    const names = new Map(after.map(person => [this.identity(person), person.name]));
+    const people = new Map(after.map(person => [this.identity(person), person]));
     return Object.fromEntries(Object.entries(picked).flatMap(([name, drink]) => {
       const person = before.find(p => p.name === name);
-      const current = person && names.get(this.identity(person));
-      return current ? [[current, drink]] : [];
+      const current = person && people.get(this.identity(person));
+      if (!current) return [];
+      return [[current.name, this.currentDrink(person, current, drink)]];
     }));
+  },
+  currentDrink(before, after, drink) {
+    if (after.usuals.includes(drink)) return drink;
+    let next = drink;
+    const seen = new Set();
+    while (Object.hasOwn(after.usualChanges || {}, next) && !seen.has(next)) {
+      seen.add(next); next = after.usualChanges[next];
+      if (after.usuals.includes(next)) return next;
+    }
+    // Compatibility with an older writer without lineage: pair replacements,
+    // rather than treating a reordering of usuals as a preference change.
+    const removed = before.usuals.filter(d => !after.usuals.includes(d));
+    const added = after.usuals.filter(d => !before.usuals.includes(d));
+    const index = removed.indexOf(drink);
+    return index >= 0 && removed.length === added.length ? added[index] : drink;
+  },
+  restoreDraft(value, roster) {
+    if (value?.version === 2 && Array.isArray(value.roster) && value.picked) {
+      return this.reconcile(value.roster, roster, value.picked);
+    }
+    // Legacy drafts have only names and drink strings. Replacement lineage
+    // updates known former usuals; unrecognized one-off choices are retained.
+    return Object.fromEntries(Object.entries(value || {}).flatMap(([name, drink]) => {
+      const person = roster.find(p => p.name === name);
+      return person && typeof drink === 'string' ? [[name, this.currentDrink(person, person, drink)]] : [];
+    }));
+  },
+  draft(picked, roster) {
+    return { version: 2, picked, roster: roster.map(({ id, name, usuals }) => ({ ...(id ? { id } : {}), name, usuals })) };
   },
 };

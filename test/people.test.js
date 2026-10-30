@@ -54,3 +54,27 @@ test('moving people preserves objects and handles the first/last boundaries', ()
   assert.equal(KopiPeople.move(roster, 'Bob', 5), roster);
   assert.deepEqual(KopiPeople.reconcile(roster, [roster[1]], initial().picked), { Bob: 'Teh' });
 });
+
+test('sync replaces only the selected usual that changed and keeps cards selected', () => {
+  const before = [{ id: 'a', name: 'Alice', usuals: ['Kopi O', 'Teh'] }, { id: 'b', name: 'Bob', usuals: ['Milo'] }];
+  const after = [KopiPeople.setUsual(before[0], 'Kopi O', 'Coke Zero'), before[1]];
+  assert.deepEqual(KopiPeople.reconcile(before, after, { Alice: 'Kopi O', Bob: 'Milo' }), { Alice: 'Coke Zero', Bob: 'Milo' });
+  assert.deepEqual(KopiPeople.reconcile(before, after, { Alice: 'Teh' }), { Alice: 'Teh' });
+  assert.deepEqual(KopiPeople.reconcile(before, after, { Alice: 'Sprite' }), { Alice: 'Sprite' });
+  assert.deepEqual(KopiPeople.reconcile(before, [{ ...before[0], usuals: ['Teh', 'Kopi O'] }, before[1]], { Alice: 'Teh' }), { Alice: 'Teh' });
+});
+
+test('saved and legacy drafts follow replacement chains, including edits made while closed', () => {
+  const before = [{ id: 'a', name: 'Alice', usuals: ['Kopi O', 'Teh'] }];
+  const draft = KopiPeople.draft({ Alice: 'Kopi O' }, before);
+  const first = KopiPeople.setUsual(before[0], 'Kopi O', 'Coke');
+  const second = KopiPeople.setUsual(first, 'Coke', 'Coke Zero');
+  const renamed = { ...second, name: 'Ali' };
+  assert.deepEqual(KopiPeople.restoreDraft(draft, [renamed]), { Ali: 'Coke Zero' });
+  assert.deepEqual(KopiPeople.restoreDraft({ Alice: 'Kopi O' }, [second]), { Alice: 'Coke Zero' });
+  assert.deepEqual(KopiPeople.restoreDraft({ Alice: 'Teh' }, [second]), { Alice: 'Teh' });
+  assert.deepEqual(KopiPeople.restoreDraft({ Alice: 'Sprite' }, [second]), { Alice: 'Sprite' });
+  const reverted = KopiPeople.setUsual(second, 'Coke Zero', 'Kopi O');
+  assert.deepEqual(KopiPeople.restoreDraft({ Alice: 'Coke' }, [reverted]), { Alice: 'Kopi O' });
+  assert.equal(Object.hasOwn(reverted.usualChanges, 'Kopi O'), false);
+});

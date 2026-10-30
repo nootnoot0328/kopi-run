@@ -6,7 +6,7 @@ import worker, { tokenHash } from '../worker/index.js';
 import '../team.js';
 
 const token = 'a'.repeat(43);
-const empty = () => ({ roster: [], history: [], customs: [], groups: [] });
+const empty = () => ({ roster: [], history: [], customs: [], groups: [], hero: KopiSettings.defaults() });
 const changed = name => ({ ...empty(), roster: [{ name, usuals: ['Kopi O'] }] });
 
 test('asset revalidation preserves a bodyless 304 response', async () => {
@@ -44,6 +44,12 @@ test('D1 API: protected access, durable saves, validation and concurrent writes'
   assert.equal((await worker.fetch(request('PUT', { version: 0, state: empty() }), env)).status, 409);
   assert.deepEqual(await (await worker.fetch(request(), env)).json(), saved);
   assert.equal((await worker.fetch(request(), env)).headers.get('Cache-Control'), 'no-store');
+  const custom = { ...empty(), hero: { ...KopiSettings.defaults(), heading: 'Team buyers', days: { ...KopiSettings.defaults().days, Friday: 'Custom names' } } };
+  assert.equal((await worker.fetch(request('PUT', { version: 1, state: custom }), env)).status, 200);
+  const legacy = empty(); delete legacy.hero;
+  assert.equal((await worker.fetch(request('PUT', { version: 2, state: legacy }), env)).status, 200);
+  assert.deepEqual((await (await worker.fetch(request(), env)).json()).state.hero, custom.hero);
+  assert.equal((await worker.fetch(request('PUT', { version: 3, state: { ...empty(), hero: { heading: 123 } } }), env)).status, 400);
 });
 
 const response = (data, status = 200) => Response.json(data, { status });
@@ -93,4 +99,59 @@ test('late refresh cannot replace a newer successful save', async () => {
   sync.queue(changed('Alice')); await untilIdle(sync);
   finishRefresh(response({ version: 0, state: empty() })); await refreshing;
   assert.equal(sync.version, 1); assert.deepEqual(JSON.parse(sync.saved), changed('Alice'));
+});
+
+test('manual sync checks unchanged data, tracks successful checks, and never reports failures as success', async () => {
+  let fail = false, reads = 0;
+  const sync = new KopiTeamSync(token, async () => {
+    reads++; if (fail) throw new Error('Offline');
+    return response({ version: 0, state: empty() });
+  });
+  await sync.load(); assert.equal(sync.upToDate, true);
+  sync.lastSyncedAt = 1;
+  assert.equal(await sync.sync(), true);
+  assert.equal(reads, 2); assert.ok(sync.lastSyncedAt > 1); assert.equal(sync.upToDate, true);
+  const last = sync.lastSyncedAt; fail = true;
+  assert.equal(await sync.sync(), false);
+  assert.equal(sync.status, 'offline'); assert.equal(sync.lastSyncedAt, last); assert.equal(sync.upToDate, false);
+  fail = false; await sync.sync(); assert.equal(sync.upToDate, true);
+});
+
+test('manual sync saves pending edits before fetching and retains failed/conflicted edits', async () => {
+  let mode = 'offline', version = 0, state = empty(); const methods = [];
+  const sync = new KopiTeamSync(token, async (url, options) => {
+    methods.push(options.method);
+    if (options.method === 'GET') return response({ version, state });
+    if (mode === 'offline') throw new Error('Offline');
+    if (mode === 'conflict') return response({ error: 'Conflict' }, 409);
+    state = JSON.parse(options.body).state; version++; return response({ version });
+  });
+  await sync.load(); const last = sync.lastSyncedAt;
+  sync.queue(changed('Alice')); await untilIdle(sync);
+  assert.equal(sync.upToDate, false);
+  assert.equal(await sync.sync(), false); assert.ok(sync.pending); assert.equal(sync.lastSyncedAt, last);
+  mode = 'ok'; methods.length = 0;
+  await sync.sync(); assert.deepEqual(methods, ['PUT', 'GET']); assert.equal(sync.upToDate, true);
+  assert.equal(sync.pending, null); assert.equal(sync.state.roster[0].name, 'Alice');
+  mode = 'conflict'; sync.queue(changed('Bob')); await untilIdle(sync);
+  const pending = sync.pending; methods.length = 0;
+  assert.equal(await sync.sync(), false); assert.equal(sync.pending, pending);
+  assert.equal(sync.upToDate, false); assert.deepEqual(methods, []);
+});
+
+test('checking is visible, concurrent manual checks coalesce, and edits invalidate in-flight checks', async () => {
+  let resolveRead, readCount = 0;
+  const sync = new KopiTeamSync(token, async (url, options) => {
+    if (options.method === 'PUT') return response({ version: 1 });
+    if (++readCount === 1) return response({ version: 0, state: empty() });
+    return new Promise(resolve => { resolveRead = resolve; });
+  });
+  await sync.load(); const last = sync.lastSyncedAt;
+  const check = sync.sync(), duplicate = sync.sync();
+  assert.equal(sync.refreshing, true); assert.equal(sync.upToDate, false);
+  assert.equal(check, duplicate); assert.equal(readCount, 2);
+  sync.queue(changed('Alice')); await untilIdle(sync);
+  resolveRead(response({ version: 0, state: empty() })); await check;
+  assert.equal(sync.version, 1); assert.equal(sync.lastSyncedAt, last);
+  assert.equal(sync.upToDate, false); assert.equal(sync.state.roster[0].name, 'Alice');
 });
