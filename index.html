@@ -22,6 +22,8 @@ html,body{margin:0;background:var(--tile);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Roboto,Arial,sans-serif;
   overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 body{padding-bottom:env(safe-area-inset-bottom)}
+/* Match the page canvas and bottom safe area to the Counter view. */
+html.counter-screen,html.counter-screen body{background:var(--night);color-scheme:dark}
 /* iOS: kill double-tap zoom, long-press callout menus and text selection on controls */
 button{font:inherit;cursor:pointer;touch-action:manipulation;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;appearance:none}
@@ -125,9 +127,6 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .listrow{display:flex;align-items:center;gap:11px;width:100%;padding:12px 0;background:none;
   border:none;border-bottom:1px solid var(--line);text-align:left;justify-content:flex-start}
 .listrow.static{justify-content:space-between}
-.listrow .box{width:26px;height:26px;border:2px solid var(--line);border-radius:7px;background:#fff;
-  color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.listrow.done .box{background:var(--jade);border-color:var(--jade)}
 .listrow.done span:last-child{opacity:.4}
 .listrow strong{display:block;font-size:15px;font-weight:700}
 .listrow em{font-style:normal;font-size:14px;color:var(--mute)}
@@ -145,6 +144,73 @@ textarea{height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
 .status.ok strong{color:var(--jade)}
 .status.bad{border-color:var(--chilli)}
 .status.bad strong{color:var(--chilli)}
+.sync-note{margin:8px 12px;font-size:12px;color:var(--mute)}
+.syncbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 12px;font-size:12px}
+.syncbar strong{display:block;font-size:13px;color:var(--mute)}
+.syncbar.ok strong{color:var(--jade)}
+html.counter-screen .syncbar strong{color:var(--paper)}
+html.counter-screen .syncbar.ok strong{color:#8DD8AF}
+html.counter-screen .syncbar time{color:rgba(255,255,255,.65)}
+.syncbar time{display:block;color:var(--mute);font-size:11px;margin-top:3px}
+.syncbar button{min-height:40px;padding:8px 14px;border:1px solid var(--jade);background:var(--paper);border-radius:10px;color:var(--jade-deep);font-weight:800}
+.buyer-hero{margin:6px 12px 10px;padding:14px 16px;border-radius:14px;background:var(--jade-deep);color:var(--paper);border-left:5px solid var(--amber)}
+.buyer-hero h2{margin:0;font-size:14px;font-weight:600}
+.buyer-hero .buyer-names{font-size:24px;font-weight:900;color:#FFD489;margin:5px 0;overflow-wrap:anywhere}
+.buyer-hero p{font-size:12px;margin:0;opacity:.85;overflow-wrap:anywhere}
+.hero-editor{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.hero-editor h3{margin:0 0 8px;font-size:17px}
+.hero-editor label{display:block;margin-top:10px;font-size:13px;font-weight:700}
+.hero-editor input{margin-top:5px;width:100%}
+.hero-editor .buyer-hero{margin:12px 0}
+.soft-drinks{margin-top:12px}
+.run-motion{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:rgba(7,63,44,.94);overflow:hidden;color:var(--ink)}
+.run-motion .motion-skip{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);border:1px solid rgba(255,255,255,.5);border-radius:22px;background:transparent;color:#fff;padding:10px 18px;font-weight:700}
+.run-motion .motion-close{position:absolute;right:18px;top:calc(18px + env(safe-area-inset-top));min-height:44px;padding:10px 16px;border-radius:24px;border:1px solid #fff8;background:transparent;color:#fff;font-weight:800}
+.thanks-motion{touch-action:none}
+.thanks-drag{transition:transform .16s ease-out}
+.motion-hint{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));left:20px;right:20px;text-align:center;color:#fff;font-size:13px;opacity:.8}
+.motion-name{position:fixed;left:var(--left);top:var(--top);width:150px;padding:11px;background:var(--paper);border:2px solid var(--amber);border-radius:12px;color:var(--ink);box-shadow:0 5px 20px #0002;pointer-events:none;animation:cards-gather .44s cubic-bezier(.5,0,.2,1) both;animation-delay:var(--delay)}
+.motion-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.motion-name span{display:block;font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
+.motion-receipt{position:relative;width:min(300px,85vw);padding:25px 22px;background:var(--paper);border-radius:4px;box-shadow:0 20px 60px #0004;animation:receipt-arrive .3s .16s both,receipt-depart .18s .68s forwards}
+.motion-receipt:after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:9px;background:linear-gradient(135deg,var(--paper) 5px,transparent 0) 0 0/12px 12px,linear-gradient(225deg,var(--paper) 5px,transparent 0) 0 0/12px 12px}
+.motion-eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;font-weight:800;color:var(--jade)}
+.motion-receipt h2{margin:8px 0 4px;font-size:25px}
+.motion-receipt .motion-meta{font-size:12px;color:var(--mute);padding-bottom:14px;margin-bottom:8px;border-bottom:2px dashed var(--line)}
+.motion-line{display:flex;gap:9px;align-items:baseline;font-size:14px;padding:5px 0;animation:order-writing .22s ease-out both;animation-delay:var(--write-delay)}
+.motion-line b{color:var(--jade);min-width:15px}
+.motion-line span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.motion-signature{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;font-style:italic;color:var(--jade);animation:order-writing .2s .4s both}
+.motion-pen{position:absolute;right:15px;bottom:18px;font-size:28px;animation:pen-write .3s .2s 2;transform:rotate(-25deg)}
+.thanks-card{position:relative;text-align:center;width:min(330px,88vw);padding:30px 22px 27px;background:var(--paper);border-radius:24px;border:2px solid var(--amber);box-shadow:0 20px 60px #0004;animation:thanks-pop .38s cubic-bezier(.2,.8,.2,1) both}
+.thanks-card h2{font-size:28px;line-height:1.12;margin:13px 0;color:var(--jade-deep)}
+.thanks-card p{font-size:14px;color:var(--mute);margin:7px 0;line-height:1.5}
+.thanks-cups{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px}
+.thanks-cups .ico:first-child{animation:cup-clink-left 3.2s ease-in-out infinite}
+.thanks-cups .ico:last-child{animation:cup-clink-right 3.2s ease-in-out infinite}
+.motion-confetti{position:absolute;left:50%;top:40%;width:7px;height:12px;border-radius:2px;background:var(--color);pointer-events:none;animation:confetti-pop 1.05s .12s ease-out both;--x:0px;--y:0px}
+.speech-panel{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.speech-button{flex-shrink:0;min-height:44px;border:1px solid var(--amber);border-radius:12px;padding:10px 13px;background:var(--amber);color:var(--ink);font-weight:800}
+.speech-button:disabled{opacity:.5}
+.speech-panel p{font-size:12px;line-height:1.4;color:#ffffffb0;margin:0}
+.speech-panel p.speech-error{color:#FFD489}
+@keyframes cards-gather{0%{opacity:1;transform:translate(0,0) rotate(0)}70%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--tilt)) scale(.4)}}
+@keyframes receipt-arrive{from{opacity:0;transform:translateY(18px) scale(.88) rotate(-4deg)}to{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
+@keyframes receipt-depart{to{opacity:0;transform:translateX(70px) rotate(5deg)}}
+@keyframes order-writing{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+@keyframes pen-write{50%{transform:translate(-15px,-3px) rotate(-15deg)}}
+@keyframes thanks-pop{from{opacity:0;transform:scale(.85) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes cup-clink-left{0%,100%{transform:rotate(-10deg)}45%{transform:translateX(7px) rotate(9deg)}}
+@keyframes cup-clink-right{0%,100%{transform:rotate(10deg)}45%{transform:translateX(-7px) rotate(-9deg)}}
+@keyframes confetti-pop{0%{opacity:0;transform:translate(0,0) rotate(0)}10%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(160deg)}}
+@media(prefers-reduced-motion:reduce){.run-motion *{animation:none!important}.motion-name,.motion-confetti{display:none}}
+.people-row{flex-wrap:wrap;gap:8px}
+.people-row .rowmain{min-width:0;overflow-wrap:anywhere}
+.person-actions{display:flex;align-items:center;gap:6px}
+.person-actions button{min-width:44px;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-weight:700}
+.person-actions button:disabled{opacity:.3}
+.person-actions .remove-person{color:var(--chilli)}
+.person-error{color:var(--chilli);font-size:14px;margin:8px 0}
 
 /* free-text drinks that have been used before */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -488,10 +554,15 @@ var QR = (function () {
 <script>
 if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist();}catch(e){}}
 </script>
+<!-- cloudflare-team-mode -->
+<script src="settings.js"></script>
+<script src="team.js"></script>
+<script src="people.js"></script>
+<script src="speech.js"></script>
 <script>
-/* Kopitiam Run — installable, offline, roster lives on this phone. */
+/* Kopitiam Run — local standalone app, or one cloud-backed team list. */
 const { h, render } = preact;
-const { useState, useEffect, useMemo } = preactHooks;
+const { useState, useEffect, useLayoutEffect, useMemo, useRef } = preactHooks;
 const html = htm.bind(h);
 
 /* ---------- storage: localStorage, with an in-memory fallback ---------- */
@@ -512,7 +583,10 @@ const store = {
   },
 };
 const K = { roster: "kr.roster.v1", history: "kr.history.v1", draft: "kr.draft.v1",
-            custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1" };
+            custom: "kr.custom.v1", groups: "kr.groups.v1", active: "kr.active.v1", hero: 'kr.hero.v1' };
+let team = null;
+const initial = (field, key, fallback) => team ? team.state[field] : store.get(key, fallback);
+const localKey = key => team ? key + '.team' : key;
 
 const inGroup = (p, g) => !g || (p.groups || []).indexOf(g) > -1;
 
@@ -542,6 +616,9 @@ const BASES = [
   { id: "Barley", milk: 0, sugar: 1, strength: 0 },
   { id: "Limau", milk: 0, sugar: 1, strength: 0 },
 ];
+const SOFT_DRINKS = ['Coke', 'Coke Zero', 'Sprite', '100 Plus', 'Ice Lemon Tea'];
+const softKey = value => value.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^cocacola/, 'coke').replace(/^icedlemontea$/, 'icelemontea');
+const softDrink = value => SOFT_DRINKS.find(drink => softKey(drink) === softKey(value)) || value;
 const GROUPS = [
   { key: "milk", gate: "milk", cards: [["O", "no milk"], ["C", "evaporated"]] },
   { key: "sugar", gate: "sugar", cards: [["Siu Dai", "less sweet"], ["Kosong", "no sugar"], ["Gah Dai", "extra sweet"]] },
@@ -646,12 +723,39 @@ function parseDrink(line) {
   return {
     base,
     milk: /\bO\b/.test(rest) ? "O" : /\bC\b/.test(rest) ? "C" : "",
+    sugar: ['Siu Dai', 'Kosong', 'Gah Dai'].find(value => rest.toLowerCase().includes(value.toLowerCase())) || '',
+    strength: ['Gau', 'Po', 'Di Lo'].find(value => new RegExp('\\b' + value + '\\b', 'i').test(rest)) || '',
     peng: /\bPeng\b/i.test(rest),
   };
 }
 
 function DrinkIcon({ line, size }) {
   const S = size || 30;
+  const quick = SOFT_DRINKS.find(drink => softKey(drink) === softKey(line || ''));
+  if (quick === 'Ice Lemon Tea') return html`<svg class="ico drink-logo" data-drink=${quick} width=${S} height=${S} viewBox="0 0 40 40" aria-hidden="true">
+    <path d="m27 3-7 15" stroke="#0E6B52" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M10 12h21l-3 24H13z" fill="#CB801F" stroke="#8C5A06" stroke-width="1.3"/>
+    <path d="M12 13h17l-.8 6H13z" fill="#EFBF61"/>
+    <rect x="15" y="21" width="6" height="6" rx="1" fill="#fff" opacity=".65" transform="rotate(12 18 24)"/>
+    <rect x="23" y="27" width="4" height="4" rx="1" fill="#fff" opacity=".5"/>
+    <circle cx="30" cy="13" r="7" fill="#F6DA54" stroke="#E5B227" stroke-width="1.5"/>
+    <path d="M30 7v12m-6-6h12m-10-4 8 8m-8 0 8-8" stroke="#fff6bf" stroke-width="1"/>
+  </svg>`;
+  if (quick) {
+    const color = { Coke: '#D83433', 'Coke Zero': '#242629', Sprite: '#23875B', '100 Plus': '#EBF2F4' }[quick];
+    return html`<svg class="ico drink-logo" data-drink=${quick} width=${S} height=${S} viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="10" y="5" width="21" height="32" rx="4" fill=${color} stroke="#72878A" stroke-width="1"/>
+      <ellipse cx="20.5" cy="6" rx="10" ry="2.5" fill="#D7DEDF"/>
+      <ellipse cx="21" cy="6" rx="3" ry="1" fill="none" stroke="#829196" stroke-width="1"/>
+      <path d="M13 10v21" stroke="#fff" stroke-width="2" opacity=".2"/>
+      ${quick === 'Coke' && html`<path d="M26 15c-13-7-16 19-1 11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M12 30c6-4 10 4 17-1" fill="none" stroke="#fff" stroke-width="1.5"/>`}
+      ${quick === 'Coke Zero' && html`<text x="20.5" y="23" text-anchor="middle" fill="#fff" font-size="7" font-weight="900">ZERO</text><path d="M13 29h15" stroke="#E74743" stroke-width="2"/>`}
+      ${quick === 'Sprite' && html`<path d="M14 24 26 14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="m23 10 6 2-3 5-5-2z" fill="#F3DD58"/><circle cx="15" cy="29" r="2" fill="#B4DECF"/>`}
+      ${quick === '100 Plus' && html`<path d="M11 13h19v4H11z" fill="#1E91C5"/><path d="M11 17h19v3H11z" fill="#D74952"/><path d="M11 20h19v3H11z" fill="#31956B"/>
+        <text x="20.5" y="31" text-anchor="middle" fill="#15577C" font-size="8" font-weight="900">100+</text>`}
+    </svg>`;
+  }
   const p = parseDrink(line);
   const vb = "0 0 40 40";
   if (!p) {
@@ -691,6 +795,7 @@ const recite = (d) => [d.base, d.milk, d.sugar, d.strength, d.peng && "Peng"].fi
 function relearn(roster, history) {
   const recent = history.slice(-30);
   return roster.map((p) => {
+    if (p.usualsLocked) return p;
     const counts = {};
     recent.forEach((run) => run.orders.forEach((o) => {
       if (o.who === p.name) counts[o.drink] = (counts[o.drink] || 0) + 1;
@@ -702,24 +807,57 @@ function relearn(roster, history) {
 
 /* ---------- app ---------- */
 function App() {
-  const [roster, setRoster] = useState(() => store.get(K.roster, []));
-  const [history, setHistory] = useState(() => store.get(K.history, []));
-  const [picked, setPicked] = useState(() => store.get(K.draft, {}));
+  const [roster, setRoster] = useState(() => initial('roster', K.roster, []));
+  const [history, setHistory] = useState(() => initial('history', K.history, []));
+  const [picked, setPicked] = useState(() => KopiPeople.restoreDraft(store.get(localKey(K.draft), {}), roster));
   const [extras, setExtras] = useState([]);
   const [screen, setScreen] = useState("who");
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('counter-screen', screen === 'counter');
+    return () => document.documentElement.classList.remove('counter-screen');
+  }, [screen]);
   const [sheet, setSheet] = useState(null);
-  const [customs, setCustoms] = useState(() => store.get(K.custom, []));
-  const [groups, setGroups] = useState(() => store.get(K.groups, []));
-  const [group, setGroup] = useState(() => store.get(K.active, ""));
+  const [customs, setCustoms] = useState(() => initial('customs', K.custom, []));
+  const [groups, setGroups] = useState(() => initial('groups', K.groups, []));
+  const [group, setGroup] = useState(() => store.get(localKey(K.active), ""));
+  const [hero, setHero] = useState(() => KopiSettings.hero(initial('hero', K.hero, KopiSettings.defaults())));
+  const [motion, setMotion] = useState(null);
+  const motionLock = useRef(false), motionAction = useRef(null);
 
-  useEffect(() => store.set(K.custom, customs), [customs]);
-  useEffect(() => store.set(K.groups, groups), [groups]);
-  useEffect(() => store.set(K.active, group), [group]);
+  useEffect(() => { if (!team) store.set(K.custom, customs); }, [customs]);
+  useEffect(() => { if (!team) store.set(K.groups, groups); }, [groups]);
+  useEffect(() => store.set(localKey(K.active), group), [group]);
   /* a deleted or renamed group must never leave the roster invisible */
   useEffect(() => { if (group && groups.indexOf(group) === -1) setGroup(""); }, [groups, group]);
-  useEffect(() => store.set(K.roster, roster), [roster]);
-  useEffect(() => store.set(K.history, history), [history]);
-  useEffect(() => store.set(K.draft, picked), [picked]);
+  useEffect(() => { if (!team) store.set(K.roster, roster); }, [roster]);
+  useEffect(() => { if (!team) store.set(K.history, history); }, [history]);
+  useLayoutEffect(() => store.set(localKey(K.draft), KopiPeople.draft(picked, roster)), [picked, roster]);
+  useEffect(() => { if (!team) store.set(K.hero, hero); }, [hero]);
+  useLayoutEffect(() => {
+    if (team) team.queue({ roster, history, customs, groups, hero });
+  }, [roster, history, customs, groups, hero]);
+  useEffect(() => {
+    if (!team) return;
+    const unsubscribe = team.subscribe((state, previous) => {
+      if (!state) return;
+      setPicked(picked => KopiPeople.reconcile(previous.roster, state.roster, picked));
+      setRoster(state.roster); setHistory(state.history);
+      setCustoms(state.customs); setGroups(state.groups); setHero(state.hero); setSheet(null);
+    });
+    const refresh = () => { if (!document.hidden) void team.refresh(); };
+    const interval = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const warn = event => { if (team.pending) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', warn);
+    return () => {
+      unsubscribe(); clearInterval(interval);
+      window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('beforeunload', warn);
+    };
+  }, []);
 
   const orders = useMemo(() => [
     ...Object.keys(picked).map((who) => ({ who, drink: picked[who] })),
@@ -740,8 +878,13 @@ function App() {
     });
   }
   function setDrink(name, drink) { setPicked((p) => ({ ...p, [name]: drink })); setSheet(null); }
+  function setUsualDrink(name, oldDrink, drink) {
+    setRoster(roster => roster.map(person => person.name === name ? KopiPeople.setUsual(person, oldDrink, drink) : person));
+    setDrink(name, drink);
+  }
   function addPerson(name, drink) {
-    setRoster((r) => r.some((x) => x.name === name) ? r : [...r, { name, usuals: [drink] }]);
+    name = roster.find(p => p.name.toLowerCase() === name.toLowerCase())?.name || name;
+    setRoster((r) => r.some((x) => x.name.toLowerCase() === name.toLowerCase()) ? r : [...r, { id: crypto.randomUUID(), name, usuals: [drink] }]);
     setPicked((p) => ({ ...p, [name]: drink }));
     setSheet(null);
   }
@@ -750,6 +893,16 @@ function App() {
   /* Merge, never replace — a colleague importing your roster keeps their own. */
   function setPersonGroups(name, gs) {
     setRoster((r) => r.map((p) => (p.name === name ? { ...p, groups: gs } : p)));
+  }
+  function renamePerson(oldName, name) {
+    try {
+      const next = KopiPeople.rename({ roster, history, picked }, oldName, name);
+      setRoster(next.roster); setHistory(next.history); setPicked(next.picked);
+      return { name: next.name };
+    } catch (error) { return { error: error.message }; }
+  }
+  function movePerson(name, direction) {
+    setRoster(roster => KopiPeople.move(roster, name, direction));
   }
   function addGroup(name) {
     const n = clean(name);
@@ -766,7 +919,7 @@ function App() {
       const out = r.map((x) => ({ ...x, usuals: x.usuals.slice() }));
       inc.people.forEach((p) => {
         const ex = out.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
-        if (!ex) out.push({ name: p.name, usuals: p.usuals.slice(0, 3) });
+        if (!ex) out.push({ id: crypto.randomUUID(), name: p.name, usuals: p.usuals.slice(0, 3) });
         else p.usuals.forEach((u) => { if (ex.usuals.indexOf(u) === -1 && ex.usuals.length < 3) ex.usuals.push(u); });
       });
       return out;
@@ -809,37 +962,212 @@ function App() {
     setRoster((r) => relearn(r, nh));
     setPicked({}); setExtras([]); setScreen("who");
   }
+  function beginMotion(kind, action) {
+    if (motionLock.current || !orders.length) return;
+    motionLock.current = true;
+    if (kind === 'order' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      action();
+      queueMicrotask(() => { motionLock.current = false; });
+      return;
+    }
+    const width = window.innerWidth, height = window.innerHeight;
+    const positions = new Map([...document.querySelectorAll('.card.on[data-person]')].map(card => [card.dataset.person, card.getBoundingClientRect()]));
+    const slips = orders.slice(0, 12).map((order, index) => {
+      const rect = positions.get(order.who);
+      const left = Math.max(10, Math.min(width - 160, rect?.left ?? width / 2 - 75));
+      const top = Math.max(100, Math.min(height - 140, rect?.top ?? height * .72));
+      return { ...order, left, top, dx: width / 2 - 75 - left, dy: height / 2 - 40 - top, tilt: (index % 5 - 2) * 5 };
+    });
+    motionAction.current = kind === 'thanks' ? null : action;
+    if (kind === 'thanks') action();
+    setMotion({ kind, slips, orders: orders.map(order => ({ ...order })), lines: lines.map(line => ({ ...line, who: line.who.slice() })) });
+  }
+  function finishMotion() {
+    if (!motionLock.current) return;
+    const action = motionAction.current;
+    motionAction.current = null; motionLock.current = false;
+    setMotion(null); action?.();
+  }
+  function startCounter() { beginMotion('order', () => setScreen('counter')); }
+  function finishRun() { beginMotion('thanks', closeRun); }
 
   return html`
     <div class="app">
+      <div class="app-content" inert=${!!motion}>
       <header>
         <div class="brand">Kopitiam Run</div>
         <nav>
-          ${[["who", "Who's in"], ["drink", "By drink"], ["counter", "Counter"], ["back", "Hand back"], ["set", "Setup"]].map(
+          ${[["who", "Who's in"], ["drink", "By drink"], ["counter", "Counter"], ["set", "Setup"]].map(
             ([id, l]) => html`<button class=${"tab" + (screen === id ? " on" : "")} onClick=${() => setScreen(id)}>${l}</button>`
           )}
         </nav>
       </header>
 
-      ${!standalone && html`<${InstallBanner} />`}
-      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} />`}
+      ${team ? html`<${TeamStatus} detailed=${screen === 'set'} />` : !standalone && html`<${InstallBanner} />`}
+      ${(screen === 'who' || screen === 'drink') && html`<${BuyerHero} hero=${hero} />`}
+      ${screen === "who" && html`<${Who} ...${{ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }} onStartCounter=${startCounter} />`}
       ${screen === "drink" && html`<${ByDrink} roster=${roster.filter((p) => inGroup(p, group))} picked=${picked} customs=${customs}
         noteCustom=${noteCustom} setScreen=${setScreen}
         onAssign=${(who, line) => setPicked((p) => ({ ...p, [who]: line }))}
         onOneOff=${(line) => setExtras((e) => [...e, line])} />`}
-      ${screen === "counter" && html`<${Counter} lines=${lines} onDone=${() => setScreen("back")} />`}
-      ${screen === "back" && html`<${HandBack} orders=${orders} onClose=${closeRun} />`}
-      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, mergeShare,
-        groups, addGroup, removeGroup, setPersonGroups }} />`}
+      ${screen === "counter" && html`<${Counter} lines=${lines} onFinish=${finishRun} />`}
+      ${screen === "set" && html`<${Setup} ...${{ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
+        groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }} />`}
 
       ${sheet && sheet.mode === "change" && html`
         <${ChangeSheet} person=${roster.find((r) => r.name === sheet.name)} current=${picked[sheet.name]}
           customs=${customs} noteCustom=${noteCustom}
+          onSaveUsual=${(oldDrink, drink) => setUsualDrink(sheet.name, oldDrink, drink)}
           onPick=${(d) => setDrink(sheet.name, d)} onCancel=${() => setSheet(null)} />`}
       ${sheet && sheet.mode === "new" && html`
         <${NewSheet} customs=${customs} noteCustom=${noteCustom}
           onAdd=${addPerson} onExtra=${addExtra} onCancel=${() => setSheet(null)} />`}
+      </div>
+      ${motion && html`<${RunMotion} data=${motion} onFinish=${finishMotion} />`}
     </div>`;
+}
+
+function RunMotion({ data, onFinish }) {
+  const skip = useRef(null);
+  const gesture = useRef(null), [swipe, setSwipe] = useState({ x: 0, y: 0 });
+  const isOrder = data.kind === 'order';
+  useLayoutEffect(() => {
+    const previous = document.activeElement;
+    skip.current?.focus({ preventScroll: true });
+    const timer = isOrder ? setTimeout(onFinish, 900) : null;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reduce = () => { if (query.matches && isOrder) onFinish(); };
+    query.addEventListener('change', reduce);
+    return () => {
+      clearTimeout(timer); query.removeEventListener('change', reduce);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      else document.querySelector('.tab.on')?.focus({ preventScroll: true });
+    };
+  }, []);
+  function endSwipe(event) {
+    const start = gesture.current; gesture.current = null;
+    if (start && event.type !== 'pointercancel' && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 70) onFinish();
+    else setSwipe({ x: 0, y: 0 });
+  }
+  return html`<div class=${'run-motion ' + (isOrder ? 'order-motion' : 'thanks-motion')} role="dialog" aria-modal="true" aria-labelledby="motion-title"
+    onPointerDown=${event => {
+      if (isOrder || !event.isPrimary || event.button !== 0 || event.target.closest('button')) return;
+      gesture.current = { x: event.clientX, y: event.clientY };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }}
+    onPointerMove=${event => {
+      if (gesture.current) setSwipe({ x: (event.clientX - gesture.current.x) * .65, y: (event.clientY - gesture.current.y) * .65 });
+    }}
+    onPointerUp=${endSwipe} onPointerCancel=${endSwipe}
+    onKeyDown=${event => {
+      if (event.key === 'Escape') onFinish();
+      if (event.key === 'Tab') { event.preventDefault(); skip.current?.focus(); }
+    }}>
+    ${isOrder ? html`
+      ${data.slips.map((slip, index) => html`<div class="motion-name" aria-hidden="true" style=${{
+        '--left': slip.left + 'px', '--top': slip.top + 'px', '--dx': slip.dx + 'px', '--dy': slip.dy + 'px', '--tilt': slip.tilt + 'deg', '--delay': index * 9 + 'ms',
+      }}><strong>${slip.who || 'Spare'}</strong><span>${slip.drink}</span></div>`)}
+      <section class="motion-receipt"><div class="motion-eyebrow">Kopitiam Run / kopi notes</div>
+        <h2 id="motion-title">Writing the order…</h2>
+        <div class="motion-meta">${data.orders.length} drinks · ${data.lines.length} lines</div>
+        ${data.lines.slice(0, 5).map((line, index) => html`<div class="motion-line" style=${{ '--write-delay': 230 + index * 45 + 'ms' }}><b>${line.who.length}×</b><span>${line.line}</span></div>`)}
+        ${data.lines.length > 5 && html`<div class="motion-meta">+ ${data.lines.length - 5} more lines</div>`}
+        <div class="motion-signature">One happy team. One tidy order.</div><span class="motion-pen" aria-hidden="true">✎</span>
+      </section>` : html`
+      ${Array.from({ length: 14 }, (_, index) => html`<i class="motion-confetti" aria-hidden="true" style=${{
+        '--x': Math.cos(index * Math.PI / 7) * 165 + 'px', '--y': Math.sin(index * Math.PI / 7) * 210 + 75 + 'px', '--color': ['#E09A2B', '#B8DFCE', '#F7F5EF'][index % 3],
+      }} />`)}
+      <div class="thanks-drag" style=${{ transform: `translate(${swipe.x}px, ${swipe.y}px)`, transition: gesture.current ? 'none' : undefined }}>
+      <section class="thanks-card"><div class="motion-eyebrow">Run complete</div>
+        <div class="thanks-cups" aria-hidden="true"><${DrinkIcon} line=${data.orders[0]?.drink || 'Kopi'} size=${66} /><${DrinkIcon} line="Kopi" size=${66} /></div>
+        <h2 id="motion-title">Gam xia lao ban hehe!</h2>
+        <p>${data.orders.length} drinks, one happy team.</p><p>Cheers to the boss ☕</p>
+      </section></div>`}
+    <button ref=${skip} class=${isOrder ? 'motion-skip' : 'motion-close'} aria-label=${isOrder ? 'Skip animation' : 'Close celebration'} onClick=${onFinish}>${isOrder ? 'Skip animation' : '✕ Close'}</button>
+    ${!isOrder && html`<div class="motion-hint">Stay awhile, boss. Swipe away or tap Close when ready.</div>`}
+  </div>`;
+}
+
+function downloadTeamEdits() {
+  const blob = new Blob([team.pending || team.saved], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = 'kopi-run-unsaved-edits.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function TeamStatus() {
+  const [, update] = useState(0);
+  useEffect(() => team.subscribe(() => update(n => n + 1)), []);
+  const checking = team.refreshing || team.status === 'checking';
+  const label = team.upToDate ? '✓ Up to date' : team.saving ? 'Saving changes…' : checking ? 'Checking…'
+    : team.status === 'conflict' ? 'Resolve sync conflict' : team.pending ? 'Unsaved changes'
+    : team.status === 'offline' ? 'Sync failed' : 'Changes saved';
+  return html`<div class=${'syncbar' + (team.upToDate ? ' ok' : '')}>
+    <div role="status" aria-live="polite"><strong>${label}</strong>
+      <time datetime=${team.lastSyncedAt ? new Date(team.lastSyncedAt).toISOString() : undefined}>Last synced: ${KopiSettings.syncTime(team.lastSyncedAt)}</time>
+    </div>
+    <button disabled=${checking || team.saving} onClick=${() => team.sync()}>${checking ? 'Syncing…' : 'Sync'}</button>
+  </div>
+  ${['error', 'offline', 'conflict'].includes(team.status) && html`<div class="nag status bad" role="alert">
+    <strong>${team.message}</strong>
+    ${team.status === 'error' && html`<button class="ghost" onClick=${() => team.flush()}>Retry saving</button>
+      <button class="link" onClick=${downloadTeamEdits}>Download unsaved edits</button>`}
+    ${team.status === 'conflict' && html`<button class="ghost" onClick=${() => {
+      downloadTeamEdits(); team.pending = null; location.reload();
+    }}>Download edits and load latest</button>`}
+  </div>`}`;
+}
+
+function useSingaporeDate() {
+  const [date, setDate] = useState(() => KopiSettings.singaporeDay().date);
+  useEffect(() => {
+    let timer;
+    const tick = () => {
+      const now = new Date(), day = KopiSettings.singaporeDay(now);
+      setDate(day.date);
+      const midnight = Date.parse(day.date + 'T00:00:00+08:00') + 86400000;
+      clearTimeout(timer); timer = setTimeout(tick, Math.min(30000, midnight - now.getTime() + 25));
+    };
+    const visible = () => { if (!document.hidden) tick(); };
+    tick(); document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); };
+  }, []);
+  return date;
+}
+
+function BuyerHero({ hero }) {
+  useSingaporeDate();
+  return html`<section class="buyer-hero" aria-label="Today's buyer">
+    <h2>${hero.heading}</h2><div class="buyer-names">${KopiSettings.buyer(hero)}</div><p>${hero.message}</p>
+  </section>`;
+}
+
+function HeroEditor({ hero, onSave }) {
+  const [draft, setDraft] = useState(null), [baseline, setBaseline] = useState(''), [error, setError] = useState('');
+  const edit = () => { setDraft(JSON.parse(JSON.stringify(hero))); setBaseline(JSON.stringify(hero)); setError(''); };
+  const change = (key, value) => setDraft(draft => ({ ...draft, [key]: value }));
+  function save(event) {
+    event.preventDefault();
+    if (baseline !== JSON.stringify(hero)) { setError('The team changed this schedule while you were editing. Cancel and reopen to use the latest version.'); return; }
+    if (!KopiSettings.validHero(draft)) { setError('Add a heading and fallback message. Keep each field within 200 characters.'); return; }
+    onSave(KopiSettings.hero(draft)); setDraft(null);
+  }
+  return html`<section class="hero-editor"><h3>Buyer schedule & hero card</h3>
+    ${!draft ? html`<p class="note">Edit the shared heading, message, and weekly buyer names. Roster names stay unchanged.</p>
+      <button class="ghost" onClick=${edit}>Edit buyer schedule</button>` : html`
+    <form onSubmit=${save}>
+      <label for="buyer-heading">Heading</label><input id="buyer-heading" maxlength="200" value=${draft.heading} onInput=${e => change('heading', e.target.value)} />
+      <label for="buyer-message">Small message</label><input id="buyer-message" maxlength="200" value=${draft.message} onInput=${e => change('message', e.target.value)} />
+      ${KopiSettings.weekdays.map(day => html`<label for=${'buyer-' + day}>${day} names${['Saturday', 'Sunday'].includes(day) ? ' (optional)' : ''}</label>
+        <input id=${'buyer-' + day} maxlength="200" value=${draft.days[day]} onInput=${e => setDraft(d => ({ ...d, days: { ...d.days, [day]: e.target.value } }))} />`)}
+      <label for="buyer-fallback">Fallback for days without names</label><input id="buyer-fallback" maxlength="200" value=${draft.fallback} onInput=${e => change('fallback', e.target.value)} />
+      <div class="label">Preview · today in Singapore</div><${BuyerHero} hero=${draft} />
+      ${error && html`<p role="alert" class="person-error">${error}</p>`}
+      <div class="btnrow"><button class="primary" type="submit">Save buyer schedule</button>
+        <button class="ghost" type="button" onClick=${() => { setDraft(null); setError(''); }}>Cancel</button></div>
+    </form>`}
+  </section>`;
 }
 
 /* ---------- install nag: the roster is not safe until this is gone ---------- */
@@ -857,7 +1185,7 @@ function InstallBanner() {
 }
 
 /* ---------- roster screen ---------- */
-function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup }) {
+function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setSheet, setScreen, groups, group, setGroup, onStartCounter }) {
   const shown = roster.filter((p) => inGroup(p, group));
   /* someone can be picked and then filtered out of view — say so, don't hide it */
   const offscreen = Object.keys(picked).filter((n) => {
@@ -887,7 +1215,6 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           <div class="big">${orders.length}<span> in</span></div>
           <div class="sub">${lines.length} lines${off ? ` · ${off} not their usual` : ""}</div>
         </div>
-        <div class="hint">Grey = not tapped yet</div>
       </div>
 
       ${groups.length > 0 && html`
@@ -908,7 +1235,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
           const on = !!d;
           const changed = on && p.usuals.indexOf(d) === -1;
           return html`
-            <div class=${"card" + (on ? " on" : "") + (changed ? " changed" : "")}>
+            <div data-person=${p.name} class=${"card" + (on ? " on" : "") + (changed ? " changed" : "")}>
               <button class="cardmain" onClick=${() => toggle(p.name)}>
                 <div class="name">${p.name}</div>
                 <div class="drinkrow">
@@ -940,7 +1267,7 @@ function Who({ roster, picked, extras, setExtras, orders, lines, toggle, setShee
             </div>`)}
         </div>`}
 
-      <button class="primary" disabled=${!orders.length} onClick=${() => setScreen("counter")}>
+      <button class="primary" disabled=${!orders.length} onClick=${onStartCounter}>
         Done — show at counter
       </button>
     </main>`;
@@ -957,19 +1284,25 @@ function Shell({ title, children, onCancel }) {
     </div>`;
 }
 
-function ChangeSheet({ person, current, onPick, onCancel, customs, noteCustom }) {
+function ChangeSheet({ person, current, onPick, onSaveUsual, onCancel, customs, noteCustom }) {
   const [building, setBuilding] = useState(false);
+  const [editingUsual, setEditingUsual] = useState(null);
   if (!person) return null;
+  if (editingUsual !== null) return html`<${Builder} title=${person.name + ' — edit usual drink'}
+    initialLine=${editingUsual} buttonText="Save usual drink"
+    helpText="Saved for future runs and used for this order."
+    customs=${customs} noteCustom=${noteCustom} onCancel=${() => setEditingUsual(null)}
+    onAdd=${drink => onSaveUsual(editingUsual, drink)} />`;
   if (building) return html`<${Builder} title=${person.name + " — today"} customs=${customs}
     noteCustom=${noteCustom} onCancel=${() => setBuilding(false)} onAdd=${onPick} />`;
   return html`
     <${Shell} title=${person.name + " wants something else"} onCancel=${onCancel}>
-      <div class="label">Their usual drinks</div>
+      <div class="label">Their usual drinks · tap to edit</div>
       <div class="stack">
         ${person.usuals.map((u) => html`
-          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => onPick(u)}>${u}</button>`)}
+          <button class=${"opt" + (u === current ? " on" : "")} onClick=${() => setEditingUsual(u)}>${u}</button>`)}
       </div>
-      <button class="ghost" onClick=${() => setBuilding(true)}>Build something different</button>
+      <button class="ghost" onClick=${() => setBuilding(true)}>Drink something different today</button>
     <//>`;
 }
 
@@ -982,7 +1315,7 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
     noteCustom=${noteCustom} onCancel=${() => setMode(null)} onAdd=${onExtra} />`;
   return html`
     <${Shell} title="Someone else" onCancel=${onCancel}>
-      <input value=${name} placeholder="Name" onInput=${(e) => setName(e.target.value)} />
+      <input value=${name} placeholder="Name" maxlength="200" onInput=${(e) => setName(e.target.value)} />
       <button class="primary" disabled=${!name.trim()} onClick=${() => setMode("person")}>Add to roster</button>
       <div class="note">They become a card next time, with this as their usual.</div>
       <button class="ghost" onClick=${() => setMode("extra")}>Just a spare drink, nobody's</button>
@@ -992,21 +1325,22 @@ function NewSheet({ onAdd, onExtra, onCancel, customs, noteCustom }) {
 function Composer({ customs, d, setD, free, setFree, onQuick }) {
   const b = d.base ? baseOf(d.base) : null;
   const typed = tidy(free);
+  const menuCustoms = (customs || []).filter(c => softKey(c) !== 'fantaorange' && !SOFT_DRINKS.some(drink => softKey(drink) === softKey(c)));
   return html`
-    ${customs && customs.length > 0 && html`
+    ${menuCustoms.length > 0 && html`
       <div class="label">Off the menu</div>
       <div class="chips">
-        ${customs.map((c) => html`
+        ${menuCustoms.map((c) => html`
           <button class="chip" onClick=${() => onQuick(c)}>
             <${DrinkIcon} line=${c} size=${20} />${c}
           </button>`)}
       </div>`}
 
     <div class="label">Build one</div>
-    <div class=${"bases" + (typed ? " dim" : "")}>
+    <div class="bases">
       ${BASES.map((x) => html`
-        <button class=${"opt sm base" + (d.base === x.id ? " on" : "")} disabled=${!!typed}
-          onClick=${() => setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false })}>
+        <button class=${"opt sm base" + (!typed && d.base === x.id ? " on" : "")}
+          onClick=${() => { setFree(''); setD({ base: x.id, milk: "", sugar: "", strength: "", peng: false }); }}>
           <${DrinkIcon} line=${x.id} size=${26} />${x.id}
         </button>`)}
     </div>
@@ -1028,27 +1362,33 @@ function Composer({ customs, d, setD, free, setFree, onQuick }) {
     </div>
 
     <div class="label">Or just type it</div>
-    <input value=${free} placeholder="Calamansi ice lemon tea, 100 Plus…"
-      onInput=${(e) => setFree(e.target.value)} />`;
+    <input value=${free} maxlength="200" placeholder="Calamansi ice lemon tea, 100 Plus…"
+      onInput=${(e) => setFree(e.target.value)} />
+    <section class="soft-drinks" aria-label="Soft drinks"><div class="label">Soft drinks</div>
+      <div class="chips">${SOFT_DRINKS.map(drink => html`<button class=${'chip' + (softDrink(typed) === drink ? ' on' : '')}
+        onClick=${() => onQuick(drink)}><${DrinkIcon} line=${drink} size=${26} />${drink}</button>`)}</div>
+    </section>`;
 }
 
-function Builder({ title, onAdd, onCancel, customs, noteCustom }) {
-  const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
-  const [free, setFree] = useState("");
+function Builder({ title, onAdd, onCancel, customs, noteCustom, initialLine = '', buttonText = 'Use this', helpText }) {
+  const recipe = parseDrink(initialLine);
+  const isRecipe = recipe && recite(recipe) === initialLine;
+  const [d, setD] = useState(() => isRecipe ? recipe : { base: null, milk: "", sugar: "", strength: "", peng: false });
+  const [free, setFree] = useState(() => isRecipe ? '' : initialLine);
   const typed = tidy(free);
-  const line = typed || (d.base ? recite(d) : "");
+  const line = softDrink(typed) || (d.base ? recite(d) : "");
   const use = (text, isFree) => { if (isFree) noteCustom(text); onAdd(text); };
 
   return html`
     <${Shell} title=${title} onCancel=${onCancel}>
       <${Composer} customs=${customs} d=${d} setD=${setD} free=${free} setFree=${setFree}
-        onQuick=${(c) => use(c, true)} />
-      <div class="note">Anything the buttons can't say. It becomes a chip up top next time.</div>
+        onQuick=${c => { setFree(c); setD({ base: null, milk: '', sugar: '', strength: '', peng: false }); }} />
+      <div class="note">${helpText || "Anything the buttons can't say. It becomes a chip up top next time."}</div>
       <div class="preview">
         <${DrinkIcon} line=${line} size=${38} />
         <div><span>The stall will hear</span><strong>${line || "—"}</strong></div>
       </div>
-      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>Use this</button>
+      <button class="primary" disabled=${!line} onClick=${() => use(line, !!typed)}>${buttonText}</button>
     <//>`;
 }
 
@@ -1057,7 +1397,7 @@ function ByDrink({ roster, picked, customs, noteCustom, onAssign, onOneOff, setS
   const [d, setD] = useState({ base: null, milk: "", sugar: "", strength: "", peng: false });
   const [free, setFree] = useState("");
   const typed = tidy(free);
-  const line = typed || (d.base ? recite(d) : "");
+  const line = softDrink(typed) || (d.base ? recite(d) : "");
 
   function commit(who) {
     if (!line) return;
@@ -1120,28 +1460,55 @@ function families(lines) {
   return arr;
 }
 
-function Counter({ lines, onDone }) {
+function SpeakOrder({ lines }) {
+  const reader = useRef(null), previous = useRef(lines);
+  if (!reader.current) reader.current = new KopiSpeech.Reader(globalThis, team && ((text, signal) => team.voice(text, signal)));
+  const [, update] = useState(0);
+  useEffect(() => {
+    const current = reader.current;
+    const unsubscribe = current.subscribe(() => update(value => value + 1));
+    const hidden = () => { if (document.hidden) current.stop(); };
+    document.addEventListener('visibilitychange', hidden);
+    return () => { unsubscribe(); document.removeEventListener('visibilitychange', hidden); current.dispose(); };
+  }, []);
+  useEffect(() => {
+    if (previous.current !== lines) reader.current.stop('Order changed. Tap Speak order for the latest list.');
+    previous.current = lines;
+  }, [lines]);
+  const current = reader.current;
+  return html`<div class="speech-panel">
+    <button class="speech-button" disabled=${!current.available} onClick=${() => current.active ? current.stop() : current.speak(lines)}>
+      ${current.active ? '■ Stop reading' : '🎤 Speak order'}
+    </button>
+    <p class=${current.status === 'error' ? 'speech-error' : ''} role=${current.status === 'error' ? 'alert' : 'status'} aria-live="polite">
+      ${!current.available ? 'Speech is unavailable in this browser.' : current.message || 'Singapore-style readout. Boss, order ah…'}
+    </p>
+  </div>`;
+}
+
+function Counter({ lines, onFinish }) {
   const [i, setI] = useState(0);
   const [mode, setMode] = useState("read");
   /* how many of each line are physically on the counter, keyed by the line text */
   const [here, setHere] = useState({});
   const fam = useMemo(() => families(lines), [lines]);
+  useEffect(() => { setI(0); setHere({}); }, [lines]);
 
   const total = lines.reduce((n, l) => n + l.who.length, 0);
-  const got = Object.keys(here).reduce((n, k) => n + here[k], 0);
+  const got = lines.reduce((n, line) => n + Math.min(here[line.line] || 0, line.who.length), 0);
   const allHere = total > 0 && got >= total;
 
   function setCount(line, n) { setHere((h) => ({ ...h, [line]: n })); }
 
-  if (!fam.length) return html`<main><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
+  if (!fam.length) return html`<main class="dark"><div class="empty"><p>Nobody tapped yet.</p></div></main>`;
 
   const tabs = html`
     <div class="modebar">
-      <button class=${"mtab" + (mode === "read" ? " on" : "")} onClick=${() => setMode("read")}>Read out</button>
+      <button class=${"mtab" + (mode === "read" ? " on" : "")} onClick=${() => setMode("read")}>Order cards</button>
       <button class=${"mtab" + (mode === "check" ? " on" : "")} onClick=${() => setMode("check")}>
         On the counter · ${got}/${total}
       </button>
-    </div>`;
+    </div><${SpeakOrder} lines=${lines} />`;
 
   /* ---- check off what has actually landed ---- */
   if (mode === "check") {
@@ -1175,9 +1542,7 @@ function Counter({ lines, onDone }) {
             })}`)}
         </div>
 
-        <button class=${allHere ? "primary" : "ghostdark"} onClick=${onDone}>
-          ${allHere ? "All here — hand them back" : "Go anyway · " + (total - got) + " still missing"}
-        </button>
+        <button class="primary" onClick=${onFinish}>Finish run</button>
       </div>`;
   }
 
@@ -1191,6 +1556,7 @@ function Counter({ lines, onDone }) {
       </div>
       <button class="primary" onClick=${() => setMode("check")}>Tick them off as they arrive</button>
       <button class="ghostdark" onClick=${() => setI(0)}>Read again</button>
+      <button class="primary" onClick=${onFinish}>Finish run</button>
     </div>`;
 
   const f = fam[i];
@@ -1225,42 +1591,17 @@ function Counter({ lines, onDone }) {
             </div>
             <div class="varwho">${it.who.filter(Boolean).join(" · ")}</div>`)}
 
-        <div class="tapme">${f.base === "Off the menu"
-          ? "Tap when the uncle has these"
-          : "Tap when the uncle has all the " + f.base.toLowerCase()}</div>
+        <div class="tapme">Tap when all these drinks are on the counter</div>
       </button>
 
-      <button class="ghostdark" onClick=${() => setI(Math.max(0, i - 1))}>He asked again</button>
+      ${i > 0 && html`<button class="ghostdark" onClick=${() => setI(i - 1)}>Previous card</button>`}
+      <button class="primary" onClick=${onFinish}>Finish run</button>
     </div>`;
 }
 
-/* ---------- hand back ---------- */
-function HandBack({ orders, onClose }) {
-  const [done, setDone] = useState([]);
-  return html`
-    <main>
-      <h2>Whose cup is whose</h2>
-      <div class="sub">${done.length} of ${orders.length} handed out</div>
-      <div class="list">
-        ${orders.map((o, i) => {
-          const on = done.indexOf(i) > -1;
-          return html`
-            <button class=${"listrow" + (on ? " done" : "")}
-              onClick=${() => setDone((d) => on ? d.filter((x) => x !== i) : [...d, i])}>
-              <span class="box">${on ? "✓" : ""}</span>
-              <${DrinkIcon} line=${o.drink} size=${28} />
-              <span><strong>${o.who || "Spare"}</strong><em>${o.drink}</em></span>
-            </button>`;
-        })}
-      </div>
-      <button class="primary" onClick=${onClose}>Finish run and learn from it</button>
-      <div class="note">Closing the run updates everyone's usual from what they actually took.</div>
-    </main>`;
-}
-
 /* ---------- setup / backup ---------- */
-function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
-                 groups, addGroup, removeGroup, setPersonGroups }) {
+function Setup({ roster, setRoster, history, setHistory, customs, setCustoms, mergeShare,
+                 groups, setGroups, addGroup, removeGroup, setPersonGroups, renamePerson, movePerson, hero, setHero }) {
   const [io, setIo] = useState("");
   const [grant, setGrant] = useState(null);
   const [showQR, setShowQR] = useState(false);
@@ -1268,7 +1609,21 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   const [newG, setNewG] = useState("");
   const [scope, setScope] = useState("");
   const [editing, setEditing] = useState(null);
-  const dump = JSON.stringify({ roster, history });
+  const [personName, setPersonName] = useState('');
+  const [personError, setPersonError] = useState('');
+  function editPerson(person) {
+    setEditing(person.name); setPersonName(person.name); setPersonError('');
+  }
+  useEffect(() => {
+    if (editing && !roster.some(person => person.name === editing)) setEditing(null);
+  }, [roster, editing]);
+  function saveName(event) {
+    event.preventDefault();
+    const result = renamePerson(editing, personName);
+    if (result.error) { setPersonError(result.error); return; }
+    setEditing(result.name); setPersonName(result.name); setPersonError('');
+  }
+  const dump = JSON.stringify({ roster, history, customs, groups, hero });
 
   /* sharing one group instead of everyone is the point — smaller code, less clutter */
   const scoped = scope ? roster.filter((p) => inGroup(p, scope)) : roster;
@@ -1295,9 +1650,24 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   function restore() {
     try {
       const o = JSON.parse(io);
+      const texts = (a, max) => Array.isArray(a) && a.length <= max && a.every(s => typeof s === 'string' && s.trim() && s.length <= 200);
+      if (!Array.isArray(o.roster) || o.roster.length > 500 || !o.roster.every(p => p &&
+          texts([p.name], 1) && texts(p.usuals, 3) && p.usuals.length &&
+          (p.groups === undefined || texts(p.groups, 100))) ||
+          new Set(o.roster.map(p => p.name.toLowerCase())).size !== o.roster.length ||
+          !Array.isArray(o.history) || o.history.length > 60 || !o.history.every(r => r &&
+            Number.isSafeInteger(r.ts) && r.ts >= 0 && Array.isArray(r.orders) && r.orders.length <= 1000 &&
+            r.orders.every(order => order && texts([order.who, order.drink], 2))) ||
+          (o.customs !== undefined && !texts(o.customs, 20)) ||
+          (o.groups !== undefined && !texts(o.groups, 100)) ||
+          (o.hero !== undefined && !KopiSettings.validHero(o.hero))) throw new Error('Invalid backup');
+      if (team && !confirm('Replace the shared roster, history, and any settings included in this backup?')) return;
       if (Array.isArray(o.roster)) setRoster(o.roster);
       if (Array.isArray(o.history)) setHistory(o.history);
-      setIo(""); setMsg("Full backup restored.");
+      if (Array.isArray(o.customs)) setCustoms(o.customs);
+      if (Array.isArray(o.groups)) setGroups(o.groups);
+      if (o.hero !== undefined) setHero(KopiSettings.hero(o.hero));
+      setIo(""); setMsg(team ? "Backup loaded. Check the save status above." : "Full backup restored.");
     } catch (e) { setMsg("That isn't a valid backup."); }
   }
 
@@ -1326,9 +1696,17 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
   return html`
     <main>
       <h2>Setup</h2>
-      ${!persisted && html`<div class="warn">This browser is blocking storage. Your roster will vanish when you close the tab. Use the backup box below.</div>`}
+      <${HeroEditor} hero=${hero} onSave=${setHero} />
+      ${!team && !persisted && html`<div class="warn">This browser is blocking storage. Your roster will vanish when you close the tab. Use the backup box below.</div>`}
 
       <div class="label">Storage</div>
+      ${team ? html`<div class="status ok"><strong>Shared team storage</strong>
+        <span>Roster, usual drinks, groups, and completed runs are saved in the cloud. No installation needed.
+        Everyone with the invitation link can view and edit this list.</span></div>
+        <div class="btnrow"><button class="ghost" onClick=${async () => {
+          try { await navigator.clipboard.writeText(location.href); setMsg('Team link copied.'); }
+          catch { setMsg('Copy the full link from your address bar, including #team=.'); }
+        }}>Copy team link</button></div>` : html`
       <div class=${"status " + (standalone ? "ok" : "bad")}>
         <strong>${standalone ? "Installed on the Home Screen" : "Running in the browser"}</strong>
         <span>${standalone
@@ -1338,7 +1716,7 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <div class="note">
         Persistent-storage grant: ${grant === null ? "unknown" : grant ? "yes" : "not granted"}.
         ${" "}Deleting the Home Screen icon deletes the roster with it, and iCloud does not back it up.
-      </div>
+      </div>`}
 
       <div class="label">Groups</div>
       <div class="chips">
@@ -1349,11 +1727,15 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
         ${groups.length === 0 && html`<span class="note">No groups yet. Everyone shows on one screen.</span>`}
       </div>
       <div class="btnrow">
-        <input value=${newG} placeholder="New group, e.g. Plant 5" onInput=${(e) => setNewG(e.target.value)} />
+        <input value=${newG} maxlength="200" placeholder="New group, e.g. Plant 5" onInput=${(e) => setNewG(e.target.value)} />
         <button class="ghost" disabled=${!newG.trim()} onClick=${() => { addGroup(newG); setNewG(""); }}>Add</button>
       </div>
       <div class="note">A person can sit in more than one group. Tap anyone below to set theirs.</div>
 
+      ${team ? html`<div class="label">Share the team link</div>
+        <button class="ghost" onClick=${() => setShowQR(!showQR)}>${showQR ? 'Hide QR code' : 'Show team QR code'}</button>
+        ${showQR && html`<div class="qrbox"><${QRSvg} text=${location.href} size=${260} />
+          <div class="note">Scan to open this same team list. Everyone with this link can edit it.</div></div>`}` : html`
       <div class="label">Give your roster to a colleague</div>
       ${groups.length > 0 && html`
         <div class="chips">
@@ -1379,9 +1761,9 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <div class="note">
         Sends people and their usuals, not your run history — the usuals already are
         the history, boiled down. Their app keeps learning from their own runs.
-      </div>
+      </div>`}
 
-      <div class="label">Receive from someone</div>
+      <div class="label">${team ? 'Import an existing roster (once for the whole team)' : 'Receive from someone'}</div>
       ${canScan
         ? html`<button class="ghost" onClick=${scan}>Scan their code with the camera</button>`
         : html`<div class="note">Safari has no camera-scanning API, so in-app scanning
@@ -1390,31 +1772,45 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
       <textarea placeholder="Paste a KR1 code, or a full backup" value=${io}
         onInput=${(e) => setIo(e.target.value)}></textarea>
       <div class="btnrow">
-        <button class="ghost" disabled=${!io.trim()} onClick=${() => receive(io)}>Add to my roster</button>
+        <button class="ghost" disabled=${!io.trim()} onClick=${() => receive(io)}>${team ? 'Add to team roster' : 'Add to my roster'}</button>
         <button class="ghost" disabled=${!io.trim()} onClick=${restore}>Restore full backup</button>
       </div>
       ${msg && html`<div class="status ok"><strong>${msg}</strong></div>`}
 
       <div class="label">Your people · ${roster.length}, from ${history.length} runs</div>
+      <div class="note">Edit a name, or use ↑ and ↓ to arrange the people tags. The order is shared with your team.</div>
       <div class="list">
-        ${roster.map((p) => html`
-          <div class="listrow static">
-            <button class="rowmain" onClick=${() => groups.length ? setEditing(p.name) : null}>
+        ${roster.map((p, index) => html`
+          <div class="listrow static people-row">
+            <button class="rowmain" aria-label=${'Edit ' + p.name} onClick=${() => editPerson(p)}>
               <strong>${p.name}</strong>
               <em>${p.usuals.join(" / ")}</em>
               ${groups.length > 0 && html`<em class="tags">${(p.groups || []).length ? (p.groups || []).join(" · ") : "no group"}</em>`}
             </button>
-            <button class="link" onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>remove</button>
+            <div class="person-actions">
+              <button aria-label=${'Move ' + p.name + ' up'} disabled=${index === 0} onClick=${() => movePerson(p.name, -1)}>↑</button>
+              <button aria-label=${'Move ' + p.name + ' down'} disabled=${index === roster.length - 1} onClick=${() => movePerson(p.name, 1)}>↓</button>
+              <button aria-label=${'Edit name for ' + p.name} onClick=${() => editPerson(p)}>Edit</button>
+              <button class="remove-person" aria-label=${'Remove ' + p.name} onClick=${() => confirm("Remove " + p.name + "?") && setRoster((r) => r.filter((x) => x.name !== p.name))}>×</button>
+            </div>
           </div>`)}
       </div>
 
       ${editing && html`
-        <${Shell} title=${"Groups for " + editing} onCancel=${() => setEditing(null)}>
+        <${Shell} title=${"Edit " + editing} onCancel=${() => setEditing(null)}>
+          <form onSubmit=${saveName}>
+            <label for="person-name">Name</label>
+            <input id="person-name" value=${personName} maxlength="200" onInput=${event => setPersonName(event.target.value)} />
+            ${personError && html`<p class="person-error" role="alert">${personError}</p>`}
+            <button class="ghost" type="submit" disabled=${!personName.trim() || personName.trim() === editing}>Save name</button>
+          </form>
+          ${groups.length > 0 && html`<div class="label">Groups</div>`}
           <div class="stack">
             ${groups.map((g) => {
               const on = inGroup(roster.find((x) => x.name === editing) || {}, g);
               return html`<button class=${"opt" + (on ? " on" : "")} onClick=${() => {
                 const p = roster.find((x) => x.name === editing);
+                if (!p) return;
                 const gs = (p.groups || []).slice();
                 const i = gs.indexOf(g);
                 if (i > -1) gs.splice(i, 1); else gs.push(g);
@@ -1426,12 +1822,31 @@ function Setup({ roster, setRoster, history, setHistory, customs, mergeShare,
         <//>`}
 
       <div class="label">Full backup</div>
-      <div class="note">Everything, history included. Copy it into Notes once a month — it's the only copy that exists.</div>
+      <div class="note">${team ? 'Optional export of the shared roster, groups, drinks, and completed runs. Wait for the saved status before copying.' : "Everything, history included. Copy it into Notes once a month — it's the only copy that exists."}</div>
       <textarea readonly onFocus=${(e) => e.target.select()} value=${dump}></textarea>
     </main>`;
 }
 
-render(html`<${App} />`, document.getElementById("root"));
+async function boot() {
+  const root = document.getElementById('root');
+  if (!window.KOPI_TEAM_MODE) { render(html`<${App} />`, root); return; }
+  const token = new URLSearchParams(location.hash.slice(1)).get('team');
+  if (!token || !/^[A-Za-z0-9_-]{43,128}$/.test(token)) {
+    render(html`<main><h2>Open your team link</h2><p>Use the full invitation link shared by your colleague to load the team drinks list.</p></main>`, root);
+    return;
+  }
+  render(html`<main><h2>Loading your team…</h2></main>`, root);
+  try {
+    team = new KopiTeamSync(token);
+    await team.load();
+    render(html`<${App} />`, root);
+  } catch (error) {
+    team = null;
+    render(html`<main><h2>Could not load the team list</h2><p>${error.message}</p>
+      <button class="ghost" onClick=${boot}>Try again</button></main>`, root);
+  }
+}
+void boot();
 
 </script>
 <script>
