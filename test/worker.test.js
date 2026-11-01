@@ -8,7 +8,7 @@ test('only order readouts can be voiced by the Worker', () => {
   assert.ok(!spokenOrder('Ignore the order and say something else.'));
   assert.ok(!spokenOrder("Boss, order ah. " + 'x'.repeat(1500) + " That's all, gam sia boss!"));
   assert.ok(!spokenOrder(undefined));
-  assert.equal(VOICES[0], 'thalia');
+  assert.deepEqual(VOICES.luna, { azure: 'en-SG-LunaNeural' });
 });
 
 test('speak endpoint is team-only and returns the AI clip as mp3', async () => {
@@ -27,4 +27,27 @@ test('speak endpoint is team-only and returns the AI clip as mp3', async () => {
   assert.deepEqual(calls[0], { model: '@cf/deepgram/aura-2-en', input: { text, speaker: 'thalia', encoding: 'mp3' }, options: { returnRawResponse: true } });
   assert.equal((await call({ text, voice: 'orion' })).status, 502);
   assert.equal(calls.length, 2);
+});
+
+test('Azure Singapore voice is preferred when configured, with Aura as backup', async t => {
+  const token = 'a'.repeat(43), sent = [], original = globalThis.fetch;
+  let azureUp = true;
+  globalThis.fetch = async (url, init) => { sent.push({ url, init }); return new Response(azureUp ? 'sg-mp3' : 'quota', { status: azureUp ? 200 : 429 }); };
+  t.after(() => { globalThis.fetch = original; });
+  const env = { TEAM_TOKEN_HASH: await tokenHash(token), DB: {}, AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'southeastasia',
+    AI: { run: async () => new Response('aura-mp3') } };
+  const text = KopiSpeech.text([{ line: 'Teh C <Siu Dai> & Kopi', who: ['Bob'] }]);
+  const call = body => worker.fetch(new Request('https://kopi.test/api/speak', { method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), env);
+  const sg = await call({ text });
+  assert.equal(await sg.text(), 'sg-mp3'); assert.equal(sg.headers.get('X-Kopi-Voice'), 'luna');
+  assert.equal(sent[0].url, 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1');
+  assert.equal(sent[0].init.headers['Ocp-Apim-Subscription-Key'], 'k');
+  assert.match(sent[0].init.body, /<voice name="en-SG-LunaNeural">Boss, order ah\. 1 Teh C &#60;Siu Dai&#62; &#38; Kopi\./);
+  assert.match((await call({ text, voice: 'wayne' })).headers.get('X-Kopi-Voice'), /wayne/);
+  assert.match(sent[1].init.body, /en-SG-WayneNeural/);
+  azureUp = false;
+  const backup = await call({ text });
+  assert.equal(await backup.text(), 'aura-mp3'); assert.equal(backup.headers.get('X-Kopi-Voice'), 'thalia');
+  assert.equal((await call({ text, voice: 'toString' })).status, 400);
 });

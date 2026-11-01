@@ -49,23 +49,47 @@ async function body(request, limit, tooLarge) {
   return input;
 }
 
-// Aura-2 voices offered for the order readout; the first is the default.
-export const VOICES = ['thalia', 'helena', 'apollo', 'pandora', 'orion'];
+// Readout voices: Azure's Singapore English when its key is set, Workers AI's Aura-2 otherwise.
+export const VOICES = {
+  luna: { azure: 'en-SG-LunaNeural' }, wayne: { azure: 'en-SG-WayneNeural' },
+  thalia: { aura: 'thalia' }, helena: { aura: 'helena' }, apollo: { aura: 'apollo' }, pandora: { aura: 'pandora' }, orion: { aura: 'orion' },
+};
 // Only order readouts are voiced, so the endpoint cannot be used as a general speech service.
 export const spokenOrder = text => typeof text === 'string' && text.length <= 1500 &&
   /^Boss, order ah\. .+ That's all, gam sia boss!$/.test(text);
+const xml = value => value.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+
+async function azure(env, text, name) {
+  if (!env.AZURE_SPEECH_KEY || !name) return null;
+  const response = await fetch(`https://${env.AZURE_SPEECH_REGION || 'southeastasia'}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+    method: 'POST',
+    headers: { 'Ocp-Apim-Subscription-Key': env.AZURE_SPEECH_KEY, 'Content-Type': 'application/ssml+xml',
+      'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3', 'User-Agent': 'kopi-run' },
+    body: `<speak version="1.0" xml:lang="en-SG"><voice name="${name}">${xml(text)}</voice></speak>`,
+  }).catch(() => null);
+  return response?.ok ? response : null;
+}
+
+async function aura(env, text, speaker) {
+  if (!env.AI) return null;
+  const response = await env.AI.run('@cf/deepgram/aura-2-en', { text, speaker, encoding: 'mp3' }, { returnRawResponse: true }).catch(() => null);
+  return response?.ok ? response : null;
+}
 
 async function speak(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
-  if (!env.AI) return json({ error: 'Voice is not configured.' }, 503);
+  if (!env.AI && !env.AZURE_SPEECH_KEY) return json({ error: 'Voice is not configured.' }, 503);
   const input = await body(request, 4096, 'Order is too long to read.');
   if (input instanceof Response) return input;
-  const speaker = input?.voice ?? VOICES[0];
-  if (!spokenOrder(input?.text) || !VOICES.includes(speaker)) return json({ error: 'Invalid order readout.' }, 400);
-  const audio = await env.AI.run('@cf/deepgram/aura-2-en', { text: input.text, speaker, encoding: 'mp3' }, { returnRawResponse: true }).catch(() => null);
-  if (!audio?.ok) return json({ error: 'Voice is unavailable. Using the phone voice instead.' }, 502);
+  const name = input?.voice ?? (env.AZURE_SPEECH_KEY ? 'luna' : 'thalia');
+  if (!spokenOrder(input?.text) || !Object.hasOwn(VOICES, name)) return json({ error: 'Invalid order readout.' }, 400);
+  const voice = VOICES[name];
+  // Azure first for the local accent; Aura keeps the readout going if Azure is down or out of quota.
+  let audio = await azure(env, input.text, voice.azure), used = name;
+  if (!audio) { audio = await aura(env, input.text, voice.aura || 'thalia'); used = voice.aura || 'thalia'; }
+  if (!audio) return json({ error: 'Voice is unavailable. Using the phone voice instead.' }, 502);
   return new Response(audio.body, { headers: {
-    'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+    'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Kopi-Voice': used,
   } });
 }
 
